@@ -911,6 +911,7 @@ namespace PD2Shared.GameFileUpdate
             WorkItem[] filesToDownload,
             ParallelOptions parallelOptions,
             IProgress<ProgressValues.IData>? progress,
+            IProgress<bool>? offlineIndicatorProgress,
             IProgress<bool>? downloadErrorIndicatorProgress)
         {
             if (!filesToDownload.Any())
@@ -1016,6 +1017,8 @@ namespace PD2Shared.GameFileUpdate
                         // Stop logging if connection has stalled -- no need to keep putting out zeros into the log
                         if (stalled && throughputLoggingPaused)
                         {
+                            offlineIndicatorProgress?.Report(true);
+
                             if (!connectionStalled)
                             {
                                 connectionStalled = true;
@@ -1026,6 +1029,8 @@ namespace PD2Shared.GameFileUpdate
                         }
                         else
                         {
+                            offlineIndicatorProgress?.Report(false);
+
                             throughputLoggingPaused = false;
 
                             if (connectionStalled)
@@ -1251,6 +1256,7 @@ namespace PD2Shared.GameFileUpdate
             FileUpdateModel fileUpdateModel,
             IProgress<ProgressValues.IData>? progress = null,
             IProgress<string>? disabledTextProgress = null,
+            IProgress<bool>? offlineIndicatorProgress = null,
             IProgress<bool>? downloadErrorIndicatorProgress = null,
             CancellationToken cancellationToken = default)
         {
@@ -1387,6 +1393,12 @@ namespace PD2Shared.GameFileUpdate
                 {
                     metadataEx = ex;
 
+                    if (ex is HttpRequestException || ex is OperationCanceledException)
+                    {
+                        // Treat external cancellation as a likely connection disruption
+                        offlineIndicatorProgress?.Report(true);
+                    }
+
                     L.CallerError(ex.InnerException, $"{nameof(DownloadMetadata)} threw");
                 }
 
@@ -1396,6 +1408,8 @@ namespace PD2Shared.GameFileUpdate
 
                     if (!metadataEntries.Any())
                     {
+                        offlineIndicatorProgress?.Report(true);
+
                         // This should really never happen, but if the retrieved metadata is, in fact, invalid, it's impossible to proceed.
                         throw new InvalidMetadataRetrieved();
                     }
@@ -1444,6 +1458,7 @@ namespace PD2Shared.GameFileUpdate
                 // Based on successful metadata download, indicate whether we think we're offline or not
 
                 L.CallerWrite(isOffline ? LogEventLevel.Warning : LogEventLevel.Information, $"Deemed {(isOffline ? "OFFLINE" : "online")}");
+                offlineIndicatorProgress?.Report(isOffline);
             }
 
             if (isOffline && !ctx.manifestEntries.Any())
@@ -1641,6 +1656,7 @@ namespace PD2Shared.GameFileUpdate
                     filesToDownload,
                     parallelOptions,
                     progress,
+                    offlineIndicatorProgress,
                     downloadErrorIndicatorProgress).ConfigureAwait(false);
 
                 // Go over all DownloadResults and store PartialDownloads
