@@ -336,15 +336,6 @@ namespace PD2Launcherv2
                 _applicationActive = false;
                 _applicationDeactivated = true;
             };
-
-            // Don't try to update launcher in debug mode
-            // TEST
-
-#if DEBUG
-            //CheckForUpdates();
-#else
-                CheckForUpdates();
-#endif
         }
 
         private bool ApplicationDeactivated => _applicationDeactivated;
