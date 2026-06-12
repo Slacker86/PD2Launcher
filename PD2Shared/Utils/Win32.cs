@@ -11,6 +11,10 @@ namespace PD2Shared.Utils
         // (https://learn.microsoft.com/en-us/windows/win32/fileio/maximum-file-path-limitation)
         public const int LongPathMaxPath = 32767;
 
+        // This is primarily for interoperability with StormLib and since StormLib isn't built with
+        // longPathAware, nor has it been tested with it, assume the historic limit.
+        public const int MAX_PATH = 260;
+
         public static string GetLastErrorMessage(int error)
         {
             return GetLastException(error).Message;
