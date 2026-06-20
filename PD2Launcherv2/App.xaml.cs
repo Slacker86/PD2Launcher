@@ -14,6 +14,7 @@ using PD2Launcherv2.Utils;
 using PD2Shared.GameFileUpdate;
 using PD2Shared.Logging;
 using static PD2Shared.Logging.LoggingStatic;
+using PD2Shared.Mpq;
 using PD2Shared.Utils;
 
 [assembly: System.Runtime.CompilerServices.RuntimeCompatibilityAttribute(WrapNonExceptionThrows = true)]
@@ -220,6 +221,15 @@ namespace PD2Launcherv2
             }
 
             L.CallerInformation($"Using up to {Environment.ProcessorCount} concurrent task(s)");
+
+            if (Mpq.StormLibVersionString != null)
+            {
+                L.CallerInformation($"Using StormLib {Mpq.StormLibVersionString}");
+            }
+            else
+            {
+                L.CallerWarning("Using an undetermined StormLib version");
+            }
 
             if (!SanityChecks.Run())
             {

@@ -7,6 +7,7 @@ using PD2Launcherv2.Utils;
 using PD2Launcherv2.Utils.Gl;
 using PD2Shared.Logging;
 using static PD2Shared.Logging.LoggingStatic;
+using PD2Shared.Mpq;
 using PD2Shared.Utils;
 using PD2Shared.Utils.PInvoke;
 
@@ -307,6 +308,201 @@ namespace PD2Launcherv2
             }
         }
 
+        private static bool CheckIfMpqsExist()
+        {
+            var dirPath = Env.GetBaseGameDirPath();
+
+            var missingMpqs = KnownMpqEx.Values
+                .Where(mpq => !mpq.IsNonStandard())
+                .Where(mpq =>
+                {
+                    var fileName = mpq.ToFileName();
+
+                    var res = File.Exists(Path.Join(dirPath, fileName));
+
+                    if (!res)
+                    {
+                        L.CallerWarning($"'{fileName}' not found in '{dirPath}'.");
+                    }
+
+                    return !res;
+                })
+                .ToArray();
+
+            if (missingMpqs.Any())
+            {
+                if (!FailurePrompt(
+                    $"Unable to find all Diablo II MPQs in '{dirPath}'.\n" +
+                    "\n" +
+                    $"MPQs missing ({missingMpqs.Length}/{KnownMpqEx.Values.Count(mpq => !mpq.IsNonStandard())}):\n" +
+                    $"{string.Join(separator: null, missingMpqs.Select(mpq => $"* {mpq.ToFileName()}\n"))}" +
+                    "\n" +
+                    "This will likely cause PD2 to crash."))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                L.CallerInformation($"All expected Diablo II MPQs found in '{dirPath}'.");
+            }
+
+            return true;
+        }
+
+        private static bool CheckIfNonStandardMpqsExist()
+        {
+            var dirPath = Env.GetBaseGameDirPath();
+
+            var nonStandardMpqs = KnownMpqEx.Values
+                .Where(mpq => mpq.IsNonStandard())
+                .Where(mpq =>
+                {
+                    var fileName = mpq.ToFileName();
+
+                    var res = File.Exists(Path.Join(dirPath, fileName));
+
+                    if (res)
+                    {
+                        L.CallerWarning($"Non-standard '{fileName}' found in '{dirPath}'.");
+                    }
+
+                    return res;
+                })
+                .ToArray();
+
+            if (nonStandardMpqs.Any())
+            {
+                if (!FailurePrompt(
+                    $"Non-standard Diablo II MPQs found in '{dirPath}':\n" +
+                    $"{string.Join(separator: null, nonStandardMpqs.Select(mpq => $"* {mpq.ToFileName()}\n"))}" +
+                    "\n" +
+                    "Presence of these files indicates tampering with game assets and will likely cause subsequent MPQ verification to fail and ultimately PD2 to crash."))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                L.CallerInformation($"No non-standard MPQs found in '{dirPath}'.");
+            }
+
+            return true;
+        }
+
+        private static bool CreateMpqHierarchy(ref MpqHierarchy? hierarchy)
+        {
+            try
+            {
+                hierarchy = MpqHierarchy.Create(Env.GetBaseGameDirPath());
+
+                return true;
+            }
+            catch (StormLibException ex)
+            {
+                L.CallerError(ex, $"Failed to create MPQ hierarchy from '{Env.GetBaseGameDirPath()}'.");
+
+                if (!FailurePrompt(ex, $"Failed to create MPQ hierarchy from '{Env.GetBaseGameDirPath()}'."))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
+
+        private static bool VerifyMpqLanguageVersion(MpqHierarchy? hierarchy)
+        {
+            if (hierarchy == null)
+            {
+                L.CallerWarning("Bailing due to MPQ hierarchy failure.");
+                return true;
+            }
+
+            var baseLanguageVersion = LanguageVersion.Unknown;
+            var expansionLanguageVersion = LanguageVersion.Unknown;
+
+            try
+            {
+                baseLanguageVersion = Mpq.DetectBaseLanguageVersion(hierarchy);
+            }
+            catch (StormLibException ex)
+            {
+                L.CallerWarning(ex, $"{nameof(Mpq.DetectBaseLanguageVersion)}() failed.");
+            }
+
+            try
+            {
+                expansionLanguageVersion = Mpq.DetectExpansionLanguageVersion(hierarchy);
+            }
+            catch (StormLibException ex)
+            {
+                L.CallerWarning(ex, $"{nameof(Mpq.DetectExpansionLanguageVersion)}() failed.");
+            }
+
+            L.CallerWrite(baseLanguageVersion == LanguageVersion.English ? Serilog.Events.LogEventLevel.Information : Serilog.Events.LogEventLevel.Warning,
+                $"Diablo II MPQs language version: {baseLanguageVersion}");
+            L.CallerWrite(expansionLanguageVersion == LanguageVersion.English ? Serilog.Events.LogEventLevel.Information : Serilog.Events.LogEventLevel.Warning,
+                $"Expansion MPQs language version: {expansionLanguageVersion}");
+
+            if (baseLanguageVersion != LanguageVersion.English ||
+                expansionLanguageVersion != LanguageVersion.English)
+            {
+                if (!FailurePrompt(
+                    $"Both Diablo II and Expansion MPQs need to be {LanguageVersion.English} versions in order for PD2 to work.\n" +
+                    "\n" +
+                    $"Detected language versions:\n" +
+                    $"Diablo II: {baseLanguageVersion}\n" +
+                    $"Expansion: {expansionLanguageVersion}\n" +
+                    "\n" +
+                    "This will likely cause PD2 to crash."))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static bool VerifyMpqsQuick(MpqHierarchy? hierarchy)
+        {
+            if (hierarchy == null)
+            {
+                L.CallerWarning("Bailing due to MPQ hierarchy failure.");
+                return true;
+            }
+
+            var failures = Mpq.QuickVerifyMpqs(hierarchy);
+
+            if (failures.Any(f => f.IsError))
+            {
+                var errorCount = failures.Count(f => f.IsError);
+
+                var affectedMpqs = failures
+                    .Where(f => f.IsError)
+                    .Select(f => f.ExpectedMpq)
+                    .OrderBy(f => f)
+                    .Distinct();
+
+                L.CallerError($"{nameof(Mpq.QuickVerifyMpqs)}() failed with {errorCount} error(s). Affected MPQs: {string.Join(", ", affectedMpqs.Select(mpq => mpq.ToFileName()))}");
+
+                var affectedMpqsStr = $"{string.Join(separator: null, affectedMpqs.Select(mpq => $"* {mpq.ToFileName()}\n"))}";
+
+                if (!FailurePrompt(
+                    $"Quick MPQ verification encountered {errorCount} error(s).\n" +
+                    "\n" +
+                    $"MPQs affected:\n" +
+                    affectedMpqsStr +
+                    "\n" +
+                    "This will likely cause PD2 to crash."))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
         private static bool TestGlContext()
         {
             using LoggedRoutine loggedRoutine = new();
@@ -366,12 +562,19 @@ namespace PD2Launcherv2
 
         public static bool Run()
         {
+            MpqHierarchy? hierarchy = null;
+
             List<Func<bool>> sanityChecks = new()
             {
                 () => CheckGameDirPathEncoding(),
                 () => CheckIfDirectoriesWritable(),
                 () => CheckMsvc2019Runtime(),
                 () => CheckD2RegistrySettings(),
+                () => CheckIfMpqsExist(),
+                () => CheckIfNonStandardMpqsExist(),
+                () => CreateMpqHierarchy(ref hierarchy),
+                () => VerifyMpqLanguageVersion(hierarchy),
+                () => VerifyMpqsQuick(hierarchy),
                 () => TestGlContext()
             };
 
