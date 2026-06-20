@@ -20,6 +20,14 @@
   <ItemGroup>
     <None Remove="Resources\listfile.txt" />
     <None Remove="Resources\mpq.manifest.json" />
+    <None Remove="Resources\StormLib.dll" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ContentWithTargetPath Include="Resources\StormLib.dll">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <TargetPath>StormLib.dll</TargetPath>
+    </ContentWithTargetPath>
   </ItemGroup>
 
   <ItemGroup>
