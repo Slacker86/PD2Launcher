@@ -496,217 +496,215 @@ namespace PD2Launcherv2
             try
             {
                 bool workOffline = IsDisableUpdates && !noLaunch;
-                bool proceed = false;
 
+                using (_currentCts = new CancellationTokenSource())
                 {
-                    Exception? caughtEx = null;
+                    CancelButton.IsEnabled = true;
+                    CancelButton.Visibility = Visibility.Visible;
+                    _cancellingAllowed = true;
 
-                    using (_currentCts = new CancellationTokenSource())
+                    try
                     {
-                        try
                         {
-                            CancelButton.IsEnabled = true;
-                            CancelButton.Visibility = Visibility.Visible;
-                            _cancellingAllowed = true;
+                            UseFileCountProgressMapping();
 
                             L.Separator();
 
-                            await _gameFileUpdater.UpdateAsync(
-                                workOffline,
-                                updateMode,
-                                UseHttp2,
-                                _localStorage.LoadSection<FileUpdateModel>(StorageKey.FileUpdateModel),
-                                new ProgressWithCookie<ProgressValues.IData>(_progressCookie, UpdateProgressValues),
-                                new ProgressWithCookie<string>(_progressCookie, UpdatePlayButtonText),
-                                new ProgressWithCookie<bool>(_progressCookie, ToggleOffline),
-                                new ProgressWithCookie<bool>(_progressCookie, ToggleProgressErrorIndicator),
-                                _currentCts.Token);
-                        }
-                        catch (OperationCanceledException ex) when (ex.CancellationToken == _currentCts.Token)
-                        {
-                            // A user-requested cancellation -- just bail
-                            L.CallerWarning("Canceled.");
-                            return;
-                        }
-                        catch (DownloadException ex)
-                        {
-                            // These contain AggregateException and are vile to log
-                            // Since all contained inner exceptions must have been logged already -- don't log them here
-                            L.CallerError($"{nameof(DownloadException)} caught: '{ex.Message}'");
-
-                            caughtEx = ex;
-                        }
-                        catch (FatalGameFileUpdateException ex)
-                        {
-                            // These will be handled below
-                            L.CallerError($"{nameof(FatalGameFileUpdateException)} caught: '{ex.Message}'");
-
-                            caughtEx = ex;
-                        }
-                        catch (Exception ex)
-                        {
-                            L.CallerError(ex, $"{nameof(GameFileUpdater.UpdateAsync)}() threw");
-
-                            caughtEx = ex;
-                        }
-                        finally
-                        {
-                            _cancellingAllowed = false;
-                            CancelButton.Visibility = Visibility.Hidden;
-
-                            _currentCts = null;
-
-                            if (_closePending)
+                            bool HandleFatalGameFileUpdateException(FatalGameFileUpdateException ex, string cause, string effect)
                             {
-                                _closePendingAllowClose = true;
-                                this.Close();
-                            }
-                        }
-                    }
+                                L.CallerError($"{nameof(FatalGameFileUpdateException)} caught: '{ex.Message}'");
 
-                    if (caughtEx == null)
-                    {
-                        proceed = true;
-                    }
-                    else
-                    {
-                        void HandleFatalGameFileUpdateException(string cause, string effect)
-                        {
-                            const string ActionMsg = "\nRefusing to launch the game.";
-                            const string OfflineActionMsg = "\nAttempt to launch the game anyway?";
+                                const string ActionMsg = "\nRefusing to launch the game.";
+                                const string OfflineActionMsg = "\nAttempt to launch the game anyway?";
 
-                            if (noLaunch)
-                            {
-                                MsgBox.Exception(
-                                    caughtEx.InnerException,
-                                    cause);
-                            }
-                            else
-                            {
-                                if (!workOffline)
+                                if (noLaunch)
                                 {
                                     MsgBox.Exception(
-                                        caughtEx.InnerException,
-                                        string.Join('\n', cause, effect, ActionMsg));
+                                        ex.InnerException,
+                                        cause);
+
+                                    return false;
                                 }
                                 else
                                 {
-                                    if (MsgBox.Exception(
-                                            caughtEx.InnerException,
+                                    if (!workOffline)
+                                    {
+                                        MsgBox.Exception(
+                                            ex.InnerException,
+                                            string.Join('\n', cause, effect, ActionMsg));
+
+                                        return false;
+                                    }
+                                    else
+                                    {
+                                        return MsgBox.Exception(
+                                            ex.InnerException,
                                             string.Join('\n', cause, effect, OfflineActionMsg),
                                             MessageBoxImage.Warning,
                                             MessageBoxButton.YesNo,
-                                            MessageBoxResult.No) == MessageBoxResult.Yes)
-                                    {
-                                        proceed = true;
+                                            MessageBoxResult.No) == MessageBoxResult.Yes;
                                     }
                                 }
                             }
-                        }
-
-                        if (caughtEx is OfflineInvalidManifest)
-                        {
-                            HandleFatalGameFileUpdateException(
-                                cause: updateMode == UpdateMode.Reset ?
-                                    // Manifest gets cleared during Reset
-                                    "Failed to retrieve metadata." :
-                                    "Failed to retrieve metadata and there is no local manifest to work with.",
-                                effect: "Game files could not be validated and the integrity of the game cannot be guaranteed."
-                            );
-                        }
-                        else if (caughtEx is InvalidMetadataRetrieved)
-                        {
-                            HandleFatalGameFileUpdateException(
-                                cause: "Retrieved metadata is invalid.",
-                                effect: "Game files could not be validated and the integrity of the game cannot be guaranteed."
-                            );
-                        }
-                        else if (caughtEx is OfflineNeedsDownload)
-                        {
-                            HandleFatalGameFileUpdateException(
-                                cause: "Game files failed validation and cannot be re-downloaded.",
-                                effect: "The integrity of the game cannot be guaranteed."
-                            );
-                        }
-                        else
-                        {
-                            // <!> Is this still needed?
-                            if (caughtEx is HttpRequestException)
-                            {
-                                ToggleOffline(show: true);
-                            }
-
-                            MsgBox.Exception(caughtEx);
-                        }
-                    }
-                }
-
-                if (!proceed)
-                {
-                    return;
-                }
-
-                // Clear progress indicator at this point
-                UpdateProgressValues(new ProgressValues().Clear().Extract());
-
-                if (!noFilterUpdate)
-                {
-                    // Make this step obey IsDisableUpdates and also bail in case of _isOffline not to produce more errors
-                    if (!workOffline && !_isOffline)
-                    {
-                        var selectedAuthorAndFilter = _localStorage.LoadSection<SelectedAuthorAndFilter>(StorageKey.SelectedAuthorAndFilter);
-                        if (selectedAuthorAndFilter?.selectedFilter != null)
-                        {
-                            UpdatePlayButtonText("Updating filter...");
 
                             try
                             {
-                                await _filterHelpers.CheckAndUpdateFilterAsync(selectedAuthorAndFilter);
+                                await _gameFileUpdater.UpdateAsync(
+                                    workOffline,
+                                    updateMode,
+                                    UseHttp2,
+                                    _localStorage.LoadSection<FileUpdateModel>(StorageKey.FileUpdateModel),
+                                    new ProgressWithCookie<ProgressValues.IData>(_progressCookie, UpdateProgressValues),
+                                    new ProgressWithCookie<string>(_progressCookie, UpdatePlayButtonText),
+                                    new ProgressWithCookie<bool>(_progressCookie, ToggleOffline),
+                                    new ProgressWithCookie<bool>(_progressCookie, ToggleProgressErrorIndicator),
+                                    _currentCts.Token);
                             }
+                            catch (OperationCanceledException ex) when (ex.CancellationToken == _currentCts.Token)
+                            {
+                                // A user-requested cancellation -- just bail
+                                L.CallerWarning("Canceled.");
+                                return;
+                            }
+                            catch (DownloadException ex)
+                            {
+                                // These contain AggregateException and are vile to log
+                                // Since all contained inner exceptions must have been logged already -- don't log them here
+                                L.CallerError($"{nameof(DownloadException)} caught: '{ex.Message}'");
+
+                                MsgBox.Exception(ex);
+                                return;
+                            }
+
+                            // FatalGameFileUpdateException variants
+                            catch (OfflineInvalidManifest ex)
+                            {
+                                if (!HandleFatalGameFileUpdateException(
+                                    ex,
+                                    cause: updateMode == UpdateMode.Reset ?
+                                        // Manifest gets cleared during Reset
+                                        "Failed to retrieve metadata." :
+                                        "Failed to retrieve metadata and there is no local manifest to work with.",
+                                    effect: "Game files could not be validated and the integrity of the game cannot be guaranteed."
+                                ))
+                                {
+                                    return;
+                                }
+                            }
+                            catch (InvalidMetadataRetrieved ex)
+                            {
+                                if (!HandleFatalGameFileUpdateException(
+                                    ex,
+                                    cause: "Retrieved metadata is invalid.",
+                                    effect: "Game files could not be validated and the integrity of the game cannot be guaranteed."
+                                ))
+                                {
+                                    return;
+                                }
+                            }
+                            catch (OfflineNeedsDownload ex)
+                            {
+                                if (!HandleFatalGameFileUpdateException(
+                                    ex,
+                                    cause: "Game files failed validation and cannot be re-downloaded.",
+                                    effect: "The integrity of the game cannot be guaranteed."
+                                ))
+                                {
+                                    return;
+                                }
+                            }
+
                             catch (Exception ex)
                             {
-                                L.CallerError(ex, $"{nameof(FilterHelpers.CheckAndUpdateFilterAsync)}() threw");
-                                MsgBox.Exception(ex, "Failed to update the filter:");
+                                L.CallerError(ex, $"{nameof(GameFileUpdater.UpdateAsync)}() threw");
 
+                                // <!> Is this still needed?
+                                if (ex is HttpRequestException)
+                                {
+                                    ToggleOffline(show: true);
+                                }
+
+                                MsgBox.Exception(ex);
                                 return;
                             }
                         }
                     }
-                }
-
-                if (noLaunch)
-                {
-                    return;
-                }
-
-                {
-                    UpdatePlayButtonText("Launching...");
-
-                    bool useAutoClose = AutoCloseAfterLaunch;
-                    Process gameProcess;
-
-                    try
+                    finally
                     {
-                        gameProcess = _launchGameHelpers.LaunchGame(_localStorage, useAutoClose ? AutoCloseGameProcessExited : null);
+                        _cancellingAllowed = false;
+                        CancelButton.Visibility = Visibility.Hidden;
+
+                        _currentCts = null;
+
+                        if (_closePending)
+                        {
+                            _closePendingAllowClose = true;
+                            this.Close();
+                        }
                     }
-                    catch (Exception ex)
-                    {
-                        L.CallerError(ex, $"{nameof(_launchGameHelpers.LaunchGame)}() threw");
-                        MsgBox.Exception(ex, "Failed to launch the game:");
 
+                    // Clear progress indicator at this point
+                    UpdateProgressValues(new ProgressValues().Clear().Extract());
+
+                    if (!noFilterUpdate)
+                    {
+                        // Make this step obey IsDisableUpdates and also bail in case of _isOffline not to produce more errors
+                        if (!workOffline && !_isOffline)
+                        {
+                            var selectedAuthorAndFilter = _localStorage.LoadSection<SelectedAuthorAndFilter>(StorageKey.SelectedAuthorAndFilter);
+                            if (selectedAuthorAndFilter?.selectedFilter != null)
+                            {
+                                UpdatePlayButtonText("Updating filter...");
+
+                                try
+                                {
+                                    await _filterHelpers.CheckAndUpdateFilterAsync(selectedAuthorAndFilter);
+                                }
+                                catch (Exception ex)
+                                {
+                                    L.CallerError(ex, $"{nameof(FilterHelpers.CheckAndUpdateFilterAsync)}() threw");
+                                    MsgBox.Exception(ex, "Failed to update the filter:");
+
+                                    return;
+                                }
+                            }
+                        }
+                    }
+
+                    if (noLaunch)
+                    {
                         return;
                     }
 
-                    if (useAutoClose)
                     {
-                        AutoCloseBegin(gameProcess);
-                    }
-                    else
-                    {
-                        gameProcess.Dispose();
-                    }
+                        UpdatePlayButtonText("Launching...");
 
-                    await Task.Delay(TimeSpan.FromSeconds(1.5));
+                        bool useAutoClose = AutoCloseAfterLaunch;
+                        Process gameProcess;
+
+                        try
+                        {
+                            gameProcess = _launchGameHelpers.LaunchGame(_localStorage, useAutoClose ? AutoCloseGameProcessExited : null);
+                        }
+                        catch (Exception ex)
+                        {
+                            L.CallerError(ex, $"{nameof(_launchGameHelpers.LaunchGame)}() threw");
+                            MsgBox.Exception(ex, "Failed to launch the game:");
+
+                            return;
+                        }
+
+                        if (useAutoClose)
+                        {
+                            AutoCloseBegin(gameProcess);
+                        }
+                        else
+                        {
+                            gameProcess.Dispose();
+                        }
+
+                        await Task.Delay(TimeSpan.FromSeconds(1.5));
+                    }
                 }
             }
             finally
