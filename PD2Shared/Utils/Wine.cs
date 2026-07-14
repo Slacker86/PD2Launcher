@@ -29,6 +29,7 @@ namespace PD2Shared.Utils
 
         const string HkcuExeKeyPath = @"Software\Wine\AppDefaults\Game.exe";
         const string HkcuDllOverridesKeyPath = HkcuExeKeyPath + @"\DllOverrides";
+        const string HkcuX11KeyPath = HkcuExeKeyPath + @"\X11 Driver";
 
         // MSVC2019 runtime
         private static readonly string[] Msvc2019Libs = {
@@ -148,6 +149,11 @@ namespace PD2Shared.Utils
             // "*vcomp140"="native,builtin"
             // "*vcruntime140"="native,builtin"
             // "*vcruntime140_1"="native,builtin"
+            //
+            // [HKEY_CURRENT_USER\Software\Wine\AppDefaults\Game.exe\X11 Driver]
+            // ; Emulate modesetting -- don't change the actual display resolution
+            // ; Available since Wine 9.22
+            // "EmulateModeset"="Y"
 
             using (var key = Registry.CurrentUser.CreateSubKey(HkcuExeKeyPath, writable: true))
             {
@@ -174,6 +180,17 @@ namespace PD2Shared.Utils
                 {
                     key.SetValue($"*{libName}", "native,builtin", RegistryValueKind.String);
                 }
+            }
+
+            using (var key = Registry.CurrentUser.CreateSubKey(HkcuX11KeyPath, writable: true))
+            {
+                if (key == null)
+                {
+                    throw new WineException($"Failed to create registry key: '{Registry.CurrentUser}\\{HkcuX11KeyPath}'");
+                }
+
+                // Emulate modesetting
+                key.SetValue("EmulateModeset", "Y", RegistryValueKind.String);
             }
         }
 
