@@ -626,6 +626,8 @@ namespace PD2Launcherv2.ViewModels
             }
         }
 
+        public bool SkipMpqChecks { get; set; }
+
         private bool _autoUpdate;
         public bool AutoUpdate
         {
@@ -740,6 +742,7 @@ namespace PD2Launcherv2.ViewModels
                 ForceSoftwareRenderer = launcherOptions.ForceSoftwareRenderer;
                 UseHttp2 = launcherOptions.UseHttp2;
                 AutoUpdate = launcherOptions.DisableAutoUpdate;
+                SkipMpqChecks = launcherOptions.SkipMpqChecks;
             }
             Debug.WriteLine("end LoadLauncherOptions\n");
         }
@@ -765,7 +768,8 @@ namespace PD2Launcherv2.ViewModels
             {
                 ForceSoftwareRenderer = ForceSoftwareRenderer,
                 UseHttp2 = UseHttp2,
-                DisableAutoUpdate = AutoUpdate
+                DisableAutoUpdate = AutoUpdate,
+                SkipMpqChecks = SkipMpqChecks,
             };
             _localStorage.Update(StorageKey.LauncherOptions, launcherOptions);
             Debug.WriteLine("end UpdateLauncherOptionsStorage\n");

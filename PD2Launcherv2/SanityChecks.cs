@@ -560,9 +560,20 @@ namespace PD2Launcherv2
             return true;
         }
 
-        public static bool Run()
+        public static bool Run(bool skipMpqChecks = false)
         {
             MpqHierarchy? hierarchy = null;
+
+            bool shouldSkipMpqChecks()
+            {
+                if (skipMpqChecks)
+                {
+                    L.CallerWarning($"Skipping due to MPQ checks being explicitly disabled.");
+                    return true;
+                }
+
+                return false;
+            }
 
             List<Func<bool>> sanityChecks = new()
             {
@@ -570,11 +581,11 @@ namespace PD2Launcherv2
                 () => CheckIfDirectoriesWritable(),
                 () => CheckMsvc2019Runtime(),
                 () => CheckD2RegistrySettings(),
-                () => CheckIfMpqsExist(),
-                () => CheckIfNonStandardMpqsExist(),
-                () => CreateMpqHierarchy(ref hierarchy),
-                () => VerifyMpqLanguageVersion(hierarchy),
-                () => VerifyMpqsQuick(hierarchy),
+                () => shouldSkipMpqChecks() || CheckIfMpqsExist(),
+                () => shouldSkipMpqChecks() || CheckIfNonStandardMpqsExist(),
+                () => shouldSkipMpqChecks() || CreateMpqHierarchy(ref hierarchy),
+                () => shouldSkipMpqChecks() || VerifyMpqLanguageVersion(hierarchy),
+                () => shouldSkipMpqChecks() || VerifyMpqsQuick(hierarchy),
                 () => TestGlContext()
             };
 

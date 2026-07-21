@@ -500,6 +500,8 @@ namespace PD2Launcherv2
             bool noFilterUpdate;
             bool noLaunch;
 
+            bool skipMpqChecks = _localStorage.LoadSectionIfExists<LauncherOptions>(StorageKey.LauncherOptions)?.SkipMpqChecks == true;
+
             switch (keyComboDown)
             {
                 case KeyComboDown.Play:
@@ -508,6 +510,12 @@ namespace PD2Launcherv2
                     mpqVerificationExclusions = VerificationExclusions.AudioVideo;
                     noFilterUpdate = false;
                     noLaunch = false;
+
+                    if (skipMpqChecks)
+                    {
+                        L.CallerWarning("MPQ checks have been explicitly disabled and will not be performed.");
+                        mpqVerificationExclusions = null;
+                    }
                     break;
 
                 case KeyComboDown.Update:
@@ -1562,13 +1570,16 @@ namespace PD2Launcherv2
 
             _localStorage.Update(StorageKey.WindowPosition, windowPosition);
 
+            var launcherOptions = _localStorage.LoadSectionIfExists<LauncherOptions>(StorageKey.LauncherOptions);
+
             // <!> Usage of these local values instead of LocalStorage directly might lead to discrepancy
             _localStorage.Update(StorageKey.LauncherOptions, new LauncherOptions
             {
                 ForceSoftwareRenderer = this.ForceSoftwareRenderer,
                 UseHttp2 = this.UseHttp2,
                 DisableAutoUpdate = this.IsDisableUpdates,
-                AutoCloseAfterLaunch = this.AutoCloseAfterLaunch
+                AutoCloseAfterLaunch = this.AutoCloseAfterLaunch,
+                SkipMpqChecks = launcherOptions?.SkipMpqChecks == true
             });
         }
 

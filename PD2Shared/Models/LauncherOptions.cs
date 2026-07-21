@@ -6,5 +6,6 @@
         public bool UseHttp2 { get; set; } = false;
         public bool DisableAutoUpdate { get; set; } = false;
         public bool AutoCloseAfterLaunch { get; set; } = false;
+        public bool SkipMpqChecks { get; set; } = false;
     }
 }

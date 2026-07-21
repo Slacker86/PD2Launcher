@@ -231,7 +231,9 @@ namespace PD2Launcherv2
                 L.CallerWarning("Using an undetermined StormLib version");
             }
 
-            if (!SanityChecks.Run())
+            bool skipMpqChecks = _serviceProvider.GetRequiredService<ILocalStorage>().LoadSectionIfExists<LauncherOptions>(StorageKey.LauncherOptions)?.SkipMpqChecks == true;
+
+            if (!SanityChecks.Run(skipMpqChecks))
             {
                 L.CallerInformation($"Sanity checks failed and user declined to continue.");
 
