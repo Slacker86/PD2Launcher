@@ -824,7 +824,7 @@ namespace PD2Shared.GameFileUpdate
             Hash expectedHash,
             CancellationToken ct,
             PartialDownload? downloadToResume = null,
-            IProgress<Tuple<long, long, long?>>? progress = null)
+            IProgress<Tuple<long, long, long?, bool>>? progress = null)
         {
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
 
@@ -899,8 +899,24 @@ namespace PD2Shared.GameFileUpdate
 
                         int bytesRead;
 
-                        while ((bytesRead = await inStream.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false)) > 0)
+                        while (true)
                         {
+                            try
+                            {
+                                progress?.Report(Tuple.Create<long, long, long?, bool>(0, totalBytesWritten, totalFileSize, true));
+
+                                bytesRead = await inStream.ReadAsync(buffer, 0, buffer.Length, ct).ConfigureAwait(false);
+                            }
+                            finally
+                            {
+                                progress?.Report(Tuple.Create<long, long, long?, bool>(0, totalBytesWritten, totalFileSize, false));
+                            }
+
+                            if (bytesRead <= 0)
+                            {
+                                break;
+                            }
+
                             await outStream.WriteAsync(buffer, 0, bytesRead, ct).ConfigureAwait(false);
 
                             digest.Update(buffer, 0, bytesRead);
@@ -909,7 +925,7 @@ namespace PD2Shared.GameFileUpdate
                                 xxh3Digest.Update(buffer, 0, bytesRead);
                             }
                             totalBytesWritten += bytesRead;
-                            progress?.Report(Tuple.Create<long, long, long?>(bytesRead, totalBytesWritten, totalFileSize));
+                            progress?.Report(Tuple.Create<long, long, long?, bool>(bytesRead, totalBytesWritten, totalFileSize, false));
                         }
 
                         if (digest.GetHash() != actualExpectedHash)
@@ -996,6 +1012,9 @@ namespace PD2Shared.GameFileUpdate
 
             // Monotonic value for throughput estimation
             long totalBytesDownloadedEver = 0;
+            // Number of active network stream reads
+            // Throughput estimator will not report stalls unless this value > 0
+            int networkStreamReadsCount = 0;
 
             {
                 var totalRemainingBytesToDownloadStr = totalBytesToDownload.IsInvalidSize() ? "?" : Formatting.FormatSizeInMiB(totalBytesToDownload - totalBytesDownloaded);
@@ -1069,6 +1088,7 @@ namespace PD2Shared.GameFileUpdate
                     }
 
                     bool stalled =
+                        networkStreamReadsCount > 0 &&
                         throughputSamples.Count >= OverSecondWorthSampleCount &&
                         throughputSamples
                             .Take(OverSecondWorthSampleCount)
@@ -1177,6 +1197,7 @@ namespace PD2Shared.GameFileUpdate
                     await Parallel.ForEachAsync(filesToDownload.OrderByDescending(f => f.ManifestEntry.Size), parallelOptions, async (f, ct) =>
                     {
                         bool sizeConfirmed = false;
+                        bool lastReadingNetworkStream = false;
 
                         long previousTotalFileBytesDownloaded = f.PartialDownload?.PartialSize ?? 0;
 
@@ -1188,9 +1209,9 @@ namespace PD2Shared.GameFileUpdate
                             f.ManifestEntry.BestHash,
                             ct,
                             f.PartialDownload,
-                            new DirectProgress<Tuple<long, long, long?>>(t =>
+                            new DirectProgress<Tuple<long, long, long?, bool>>(t =>
                             {
-                                (var fileBytesDownloaded, var totalFileBytesDownloaded, var totalFileSize) = t;
+                                (var fileBytesDownloaded, var totalFileBytesDownloaded, var totalFileSize, var readingNetworkStream) = t;
 
                                 if (!sizeConfirmed)
                                 {
@@ -1221,6 +1242,20 @@ namespace PD2Shared.GameFileUpdate
                                 Interlocked.Add(ref totalBytesDownloaded, totalFileBytesDownloaded - previousTotalFileBytesDownloaded);
                                 previousTotalFileBytesDownloaded = totalFileBytesDownloaded;
                                 Interlocked.Add(ref totalBytesDownloadedEver, fileBytesDownloaded);
+
+                                if (lastReadingNetworkStream != readingNetworkStream)
+                                {
+                                    if (readingNetworkStream)
+                                    {
+                                        Interlocked.Increment(ref networkStreamReadsCount);
+                                    }
+                                    else
+                                    {
+                                        Interlocked.Decrement(ref networkStreamReadsCount);
+                                    }
+
+                                    lastReadingNetworkStream = readingNetworkStream;
+                                }
                             })).ConfigureAwait(false);
 
                         lock (downloadResults)
