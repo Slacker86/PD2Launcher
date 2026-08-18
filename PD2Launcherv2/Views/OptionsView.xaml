@@ -44,11 +44,11 @@
                           FontFamily="{StaticResource BlizzMedium}" Foreground="{StaticResource GoldBrush}" 
                           FontSize="14">
                     <StackPanel>
-                        <RadioButton x:Name="d2gl" Content="3dfx" GroupName="renderer" Style="{StaticResource CustomRadioButtonStyle}" 
+                        <RadioButton x:Name="d2gl" Content="D2GL (-3dfx)" GroupName="renderer" Style="{StaticResource CustomRadioButtonStyle}"
                                      FontFamily="{StaticResource BlizzMedium}" Foreground="{StaticResource GoldBrush}" IsChecked="{Binding IsDdrawSelected, Converter={StaticResource InverseBool}}"
                                      FontSize="14" HorizontalAlignment="Left" Margin="10,10,0,0"/>
                         <TextBlock Text="Note: You can use CTRL+O in-game to edit video settings" FontSize="12" FontStyle="Italic" Margin="10,0,10,0" Foreground="{StaticResource GoldDarkerBrush}"/>
-                        <RadioButton x:Name="ddraw" Content="ddraw" GroupName="renderer" Style="{StaticResource CustomRadioButtonStyle}" 
+                        <RadioButton x:Name="ddraw" Content="cnc-ddraw (-ddraw)" GroupName="renderer" Style="{StaticResource CustomRadioButtonStyle}"
                                      FontFamily="{StaticResource BlizzMedium}" Foreground="{StaticResource GoldBrush}" IsChecked="{Binding IsDdrawSelected}"
                                      FontSize="14" HorizontalAlignment="Left" Margin="10,5,0,0"/>
                     </StackPanel>
