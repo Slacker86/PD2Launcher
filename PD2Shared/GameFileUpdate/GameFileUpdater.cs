@@ -4,7 +4,9 @@ using System.Buffers;
 using System.Collections.Immutable;
 using System.Data;
 using System.Diagnostics;
+using System.Net;
 using System.Net.Http.Headers;
+using System.Net.Sockets;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using PD2Shared.Extensions;
@@ -1394,6 +1396,8 @@ namespace PD2Shared.GameFileUpdate
                 MaxDegreeOfParallelism = Environment.ProcessorCount
             };
 
+            Dictionary<Tuple<string, AddressFamily>, List<IPAddress>> dnsLogCache = new();
+
             using var socketsHttpHandler = new SocketsHttpHandler()
             {
                 ConnectTimeout = TimeSpan.FromSeconds(3),
@@ -1402,6 +1406,64 @@ namespace PD2Shared.GameFileUpdate
                 KeepAlivePingPolicy = HttpKeepAlivePingPolicy.Always,
                 KeepAlivePingDelay = TimeSpan.FromSeconds(5),
                 KeepAlivePingTimeout = TimeSpan.FromSeconds(5),
+
+                ConnectCallback = async (connCtx, ct) =>
+                {
+                    // Based on https://learn.microsoft.com/en-us/dotnet/api/system.net.http.socketshttphandler.connectcallback#examples
+
+                    // This will be subject to system-wide DNS cache
+                    IPAddress[] ipAddresses = await Dns.GetHostAddressesAsync(connCtx.DnsEndPoint.Host, connCtx.DnsEndPoint.AddressFamily, ct).ConfigureAwait(false);
+
+                    var dnsKey = Tuple.Create(connCtx.DnsEndPoint.Host, connCtx.DnsEndPoint.AddressFamily);
+                    bool dnsLogCacheUpdated = false;
+
+                    lock (dnsLogCache)
+                    {
+                        if (!dnsLogCache.TryGetValue(dnsKey, out List<IPAddress>? cachedIpAddresses))
+                        {
+                            dnsLogCache.Add(dnsKey, new List<IPAddress>(ipAddresses));
+                            dnsLogCacheUpdated = true;
+                        }
+                        else
+                        {
+                            if (!cachedIpAddresses.SequenceEqual(ipAddresses))
+                            {
+                                cachedIpAddresses.Clear();
+                                cachedIpAddresses.AddRange(ipAddresses);
+                                dnsLogCacheUpdated = true;
+                            }
+                        }
+                    }
+
+                    if (dnsLogCacheUpdated)
+                    {
+                        L.CallerDebug($"Resolved: {connCtx.DnsEndPoint.Host} -> {string.Join(", ", ipAddresses.Select(a => a.GetCleanAddress()))}");
+                    }
+
+                    Socket socket = new(SocketType.Stream, ProtocolType.Tcp) { NoDelay = true };
+
+                    try
+                    {
+                        // Apply TCP keep-alive as well (based on the above example)
+                        socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                        socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 5);
+                        socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 5);
+                        socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
+
+                        await socket.ConnectAsync(ipAddresses, connCtx.DnsEndPoint.Port, ct).ConfigureAwait(false);
+
+                        IPAddress connectedIpAddress = ((IPEndPoint)socket.RemoteEndPoint!).Address.GetCleanAddress();
+
+                        L.CallerDebug($"Connected to: {connCtx.DnsEndPoint.Host} -> {connectedIpAddress}");
+
+                        return new NetworkStream(socket, ownsSocket: true);
+                    }
+                    catch
+                    {
+                        socket.Dispose();
+                        throw;
+                    }
+                }
             };
 
             using var httpClient = new HttpClient(socketsHttpHandler)
