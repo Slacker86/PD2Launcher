@@ -12,9 +12,11 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Navigation;
 using System.Windows.Threading;
@@ -33,6 +35,12 @@ namespace PD2Launcherv2
     /// </summary>.
     public partial class MainWindow : Window, INotifyPropertyChanged
     {
+        private static class DllImports
+        {
+            [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+            public static extern int RegisterWindowMessage(string messageStringId);
+        }
+
         private enum KeyComboDown
         {
             Play,
@@ -80,6 +88,9 @@ namespace PD2Launcherv2
 
         // Auto-close
         private static readonly TimeSpan AutoCloseTimeSpan = TimeSpan.FromSeconds(10);
+        private const string AutoCloseMessageStringId = "PD2 initialized";
+        private readonly int AutoCloseMessageId;
+        private HwndSource? _autoCloseHwndSource = null;
 
         private readonly object _autoCloseLock = new();
         private bool _autoCloseActive = false;
@@ -298,6 +309,17 @@ namespace PD2Launcherv2
             AutoCloseResetProgress();
             InputManager.Current.PostProcessInput += AutoClosePostProcessInput;
 
+            AutoCloseMessageId = DllImports.RegisterWindowMessage(AutoCloseMessageStringId);
+
+            if (AutoCloseMessageId == 0)
+            {
+                L.CallerError($"Failed to register auto-close message: '{Win32.GetLastErrorMessage(nameof(DllImports.RegisterWindowMessage), AutoCloseMessageStringId)}'");
+            }
+            else
+            {
+                L.CallerInformation($"Successfully registered auto-close message with IDs: '{AutoCloseMessageStringId}' -> 0x{AutoCloseMessageId,4:X}");
+            }
+
             // Don't try to update launcher in debug mode
             // TEST
 
@@ -306,6 +328,38 @@ namespace PD2Launcherv2
 #else
                 CheckForUpdates();
 #endif
+        }
+
+        protected override void OnSourceInitialized(EventArgs e)
+        {
+            base.OnSourceInitialized(e);
+
+            if (AutoCloseMessageId == 0)
+            {
+                // Bail due to failing to register the message
+                return;
+            }
+
+            _autoCloseHwndSource = HwndSource.FromHwnd(new WindowInteropHelper(this).Handle);
+
+            _autoCloseHwndSource.AddHook((IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+            {
+                if (msg == AutoCloseMessageId)
+                {
+                    AutoCloseProcessMessage(wParam.ToInt32());
+
+                    handled = true;
+                }
+
+                return IntPtr.Zero;
+            });
+        }
+
+        protected override void OnClosed(EventArgs e)
+        {
+            _autoCloseHwndSource?.Dispose();
+
+            base.OnClosed(e);
         }
 
         private void OnNavigationMessageReceived(NavigationMessage message)
@@ -1696,6 +1750,35 @@ namespace PD2Launcherv2
             autoCloseThread?.Join();
 
             return true;
+        }
+
+        private bool AutoCloseProcessMessage(int processId)
+        {
+            lock (_autoCloseLock)
+            {
+                if (!_autoCloseActive)
+                {
+                    L.CallerWarning($"Auto-close message with PID {processId} received despite auto-close being inactive.");
+
+                    return false;
+                }
+
+                if (_autoCloseGameProcess!.Id != processId)
+                {
+                    L.CallerDebug($"Auto-close message received with non-matching PID {processId} != {_autoCloseGameProcess!.Id} (actual).");
+
+                    return false;
+                }
+                else
+                {
+                    L.CallerDebug("Auto-close message received. Auto-closing...");
+
+                    AutoCloseAbort();
+                    this.Close();
+
+                    return true;
+                }
+            }
         }
 
         private void AutoCloseResetProgress()
