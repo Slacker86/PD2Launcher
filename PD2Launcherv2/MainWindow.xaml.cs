@@ -26,6 +26,7 @@ using PD2Launcherv2.Utils;
 using PD2Launcherv2.Utils.Gl;
 using PD2Shared.GameFileUpdate;
 using PD2Shared.Logging;
+using PD2Shared.Mpq;
 using static PD2Shared.Logging.LoggingStatic;
 using PD2Shared.Utils;
 
@@ -49,7 +50,10 @@ namespace PD2Launcherv2
             Update,
             Restore,
             Download,
-            Reset
+            Reset,
+
+            VerifyMpqs,
+            VerifyMpqsFull
         }
 
         private class IPAddressStats
@@ -490,8 +494,9 @@ namespace PD2Launcherv2
                 }
             }
 
-            UpdateMode updateMode;
+            UpdateMode? updateMode;
             OfflinePolicy? offlinePolicy;
+            VerificationExclusions? mpqVerificationExclusions;
             bool noFilterUpdate;
             bool noLaunch;
 
@@ -500,6 +505,7 @@ namespace PD2Launcherv2
                 case KeyComboDown.Play:
                     updateMode = UpdateMode.Normal;
                     offlinePolicy = OfflinePolicy.AllowOffline;
+                    mpqVerificationExclusions = VerificationExclusions.AudioVideo;
                     noFilterUpdate = false;
                     noLaunch = false;
                     break;
@@ -507,6 +513,7 @@ namespace PD2Launcherv2
                 case KeyComboDown.Update:
                     updateMode = UpdateMode.Normal;
                     offlinePolicy = OfflinePolicy.ForceOnline;
+                    mpqVerificationExclusions = null;
                     noFilterUpdate = false;
                     noLaunch = true;
                     break;
@@ -514,6 +521,7 @@ namespace PD2Launcherv2
                 case KeyComboDown.Restore:
                     updateMode = UpdateMode.Restore;
                     offlinePolicy = OfflinePolicy.AllowOffline;
+                    mpqVerificationExclusions = null;
                     noFilterUpdate = true;
                     noLaunch = true;
                     break;
@@ -521,6 +529,7 @@ namespace PD2Launcherv2
                 case KeyComboDown.Download:
                     updateMode = UpdateMode.Download;
                     offlinePolicy = OfflinePolicy.ForceOnline;
+                    mpqVerificationExclusions = null;
                     noFilterUpdate = true;
                     noLaunch = true;
                     break;
@@ -528,6 +537,23 @@ namespace PD2Launcherv2
                 case KeyComboDown.Reset:
                     updateMode = UpdateMode.Reset;
                     offlinePolicy = OfflinePolicy.ForceOnline;
+                    mpqVerificationExclusions = null;
+                    noFilterUpdate = true;
+                    noLaunch = true;
+                    break;
+
+                case KeyComboDown.VerifyMpqs:
+                    updateMode = null;
+                    offlinePolicy = null;
+                    mpqVerificationExclusions = VerificationExclusions.AudioVideo;
+                    noFilterUpdate = true;
+                    noLaunch = true;
+                    break;
+
+                case KeyComboDown.VerifyMpqsFull:
+                    updateMode = null;
+                    offlinePolicy = null;
+                    mpqVerificationExclusions = VerificationExclusions.None;
                     noFilterUpdate = true;
                     noLaunch = true;
                     break;
@@ -557,6 +583,7 @@ namespace PD2Launcherv2
 
                     try
                     {
+                        if (updateMode != null)
                         {
                             Debug.Assert(offlinePolicy != null);
 
@@ -605,7 +632,7 @@ namespace PD2Launcherv2
                             {
                                 await _gameFileUpdater.UpdateAsync(
                                     offlinePolicy.Value,
-                                    updateMode,
+                                    updateMode.Value,
                                     UseHttp2,
                                     _localStorage.LoadSection<FileUpdateModel>(StorageKey.FileUpdateModel),
                                     new ProgressWithCookie<ProgressValues.IData>(_progressCookie, UpdateProgressValues),
@@ -692,6 +719,108 @@ namespace PD2Launcherv2
 
                                 MsgBox.Exception(ex);
                                 return;
+                            }
+                        }
+
+                        if (mpqVerificationExclusions != null)
+                        {
+                            UseTotalProgressMapping();
+
+                            L.Separator();
+
+                            try
+                            {
+                                UpdatePlayButtonText("Opening MPQs...");
+
+                                var hierarchy = await MpqHierarchy.CreateAsync(Env.GetBaseGameDirPath(), _currentCts.Token);
+
+                                UpdatePlayButtonText("Verifying MPQs...");
+
+                                List<VerificationFailure> failures = await Mpq.VerifyMpqsAsync(
+                                    hierarchy,
+                                    new ProgressWithCookie<ProgressValues.IData>(_progressCookie, UpdateProgressValues),
+                                    new ProgressWithCookie<bool>(_progressCookie, ToggleProgressErrorIndicator),
+                                    mpqVerificationExclusions.Value,
+                                    _currentCts.Token);
+
+                                // Clear progress indicator at this point
+                                UpdateProgressValues(new ProgressValues().Clear().Extract());
+
+                                var errorCount = failures.Count(failure => failure.IsError);
+
+                                if (errorCount > 0)
+                                {
+                                    var affectedMpqs = failures
+                                        .Where(f => f.IsError)
+                                        .Select(f => f.ExpectedMpq)
+                                        .OrderBy(f => f)
+                                        .Distinct();
+
+                                    L.CallerError($"{nameof(Mpq.VerifyMpqsAsync)}() failed with {errorCount} error(s). Affected MPQs: {string.Join(", ", affectedMpqs.Select(mpq => mpq.ToFileName()))}");
+
+                                    var affectedMpqsStr = $"{string.Join(separator: null, affectedMpqs.Select(mpq => $"* {mpq.ToFileName()}\n"))}";
+
+                                    if (noLaunch)
+                                    {
+                                        MsgBox.Error(
+                                            $"MPQ verification encountered {errorCount} error(s).\n" +
+                                            "\n" +
+                                            $"MPQs affected:\n" +
+                                            affectedMpqsStr);
+                                    }
+                                    else
+                                    {
+                                        if (MsgBox.Warn(
+                                            $"MPQ verification encountered {errorCount} error(s).\n" +
+                                            "\n" +
+                                            $"MPQs affected:\n" +
+                                            affectedMpqsStr +
+                                            "\n" +
+                                            "This will likely cause PD2 to crash.\n" +
+                                            "\n" +
+                                            "Attempt to launch the game anyway?",
+                                            MessageBoxButton.YesNo,
+                                            MessageBoxResult.No) == MessageBoxResult.No)
+                                        {
+                                            return;
+                                        }
+                                    }
+                                }
+                            }
+                            catch (OperationCanceledException ex) when (ex.CancellationToken == _currentCts.Token)
+                            {
+                                // A user-requested cancellation -- just bail
+                                L.CallerWarning("Canceled.");
+                                return;
+                            }
+                            catch (StormLibException ex)
+                            {
+                                L.CallerError(ex, $"Caught {ex.GetType().Name}");
+
+                                if (noLaunch)
+                                {
+                                    MsgBox.Exception(
+                                        ex,
+                                        $"MPQ verification failed.\n" +
+                                        "\n" +
+                                        "This means PD2 will likely crash.");
+                                }
+                                else
+                                {
+                                    if (MsgBox.Exception(
+                                        ex,
+                                        $"MPQ verification failed.\n" +
+                                        "\n" +
+                                        "This means PD2 will likely crash.\n" +
+                                        "\n" +
+                                        "Attempt to launch the game anyway?",
+                                        MessageBoxImage.Warning,
+                                        MessageBoxButton.YesNo,
+                                        MessageBoxResult.No) == MessageBoxResult.No)
+                                    {
+                                        return;
+                                    }
+                                }
                             }
                         }
                     }
@@ -830,6 +959,8 @@ namespace PD2Launcherv2
                 // Therefore, handling Alt alone isn't great (without disabling system menu first, but that's too invasive).
 
                 ModifierKeys.Control | ModifierKeys.Shift | ModifierKeys.Alt => KeyComboDown.Reset,
+                ModifierKeys.Shift | ModifierKeys.Alt => KeyComboDown.VerifyMpqsFull,
+                ModifierKeys.Control | ModifierKeys.Alt => KeyComboDown.VerifyMpqs,
                 ModifierKeys.Control | ModifierKeys.Shift => KeyComboDown.Download,
                 ModifierKeys.Shift => KeyComboDown.Restore,
                 ModifierKeys.Control => KeyComboDown.Update,
@@ -1121,6 +1252,11 @@ namespace PD2Launcherv2
                     return "Download";
                 case KeyComboDown.Reset:
                     return "Reset";
+
+                case KeyComboDown.VerifyMpqs:
+                    return "Verify MPQs";
+                case KeyComboDown.VerifyMpqsFull:
+                    return "Full verify MPQs";
 
                 // <!> Only switch expressions can benefit from "exhaustive switch"
                 default:
