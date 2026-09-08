@@ -451,6 +451,7 @@ namespace PD2Launcherv2
             }
 
             UpdateMode updateMode;
+            OfflinePolicy? offlinePolicy;
             bool noFilterUpdate;
             bool noLaunch;
 
@@ -458,30 +459,35 @@ namespace PD2Launcherv2
             {
                 case KeyComboDown.Play:
                     updateMode = UpdateMode.Normal;
+                    offlinePolicy = OfflinePolicy.AllowOffline;
                     noFilterUpdate = false;
                     noLaunch = false;
                     break;
 
                 case KeyComboDown.Update:
                     updateMode = UpdateMode.Normal;
+                    offlinePolicy = OfflinePolicy.ForceOnline;
                     noFilterUpdate = false;
                     noLaunch = true;
                     break;
 
                 case KeyComboDown.Restore:
                     updateMode = UpdateMode.Restore;
+                    offlinePolicy = OfflinePolicy.AllowOffline;
                     noFilterUpdate = true;
                     noLaunch = true;
                     break;
 
                 case KeyComboDown.Download:
                     updateMode = UpdateMode.Download;
+                    offlinePolicy = OfflinePolicy.ForceOnline;
                     noFilterUpdate = true;
                     noLaunch = true;
                     break;
 
                 case KeyComboDown.Reset:
                     updateMode = UpdateMode.Reset;
+                    offlinePolicy = OfflinePolicy.ForceOnline;
                     noFilterUpdate = true;
                     noLaunch = true;
                     break;
@@ -491,12 +497,18 @@ namespace PD2Launcherv2
                     throw new InvalidEnumArgumentException();
             }
 
+            if (offlinePolicy != null)
+            {
+                if (IsDisableUpdates && !offlinePolicy.Value.ForceOnline())
+                {
+                    offlinePolicy = OfflinePolicy.ForceOffline;
+                }
+            }
+
             UpdateUIForOperationStart();
 
             try
             {
-                bool workOffline = IsDisableUpdates && !noLaunch;
-
                 using (_currentCts = new CancellationTokenSource())
                 {
                     CancelButton.IsEnabled = true;
@@ -506,6 +518,8 @@ namespace PD2Launcherv2
                     try
                     {
                         {
+                            Debug.Assert(offlinePolicy != null);
+
                             UseFileCountProgressMapping();
 
                             L.Separator();
@@ -527,7 +541,7 @@ namespace PD2Launcherv2
                                 }
                                 else
                                 {
-                                    if (!workOffline)
+                                    if (!offlinePolicy.Value.ForceOffline())
                                     {
                                         MsgBox.Exception(
                                             ex.InnerException,
@@ -550,7 +564,7 @@ namespace PD2Launcherv2
                             try
                             {
                                 await _gameFileUpdater.UpdateAsync(
-                                    workOffline,
+                                    offlinePolicy.Value,
                                     updateMode,
                                     UseHttp2,
                                     _localStorage.LoadSection<FileUpdateModel>(StorageKey.FileUpdateModel),
@@ -577,7 +591,18 @@ namespace PD2Launcherv2
                             }
 
                             // FatalGameFileUpdateException variants
-                            catch (OfflineInvalidManifest ex)
+                            catch (CannotRetrieveMetadataException ex)
+                            {
+                                if (!HandleFatalGameFileUpdateException(
+                                    ex,
+                                    cause: "Failed to retrieve metadata.",
+                                    effect: "Unable to proceed with downloads."
+                                ))
+                                {
+                                    return;
+                                }
+                            }
+                            catch (OfflineInvalidManifestException ex)
                             {
                                 if (!HandleFatalGameFileUpdateException(
                                     ex,
@@ -591,7 +616,7 @@ namespace PD2Launcherv2
                                     return;
                                 }
                             }
-                            catch (InvalidMetadataRetrieved ex)
+                            catch (InvalidMetadataRetrievedException ex)
                             {
                                 if (!HandleFatalGameFileUpdateException(
                                     ex,
@@ -602,7 +627,7 @@ namespace PD2Launcherv2
                                     return;
                                 }
                             }
-                            catch (OfflineNeedsDownload ex)
+                            catch (OfflineNeedsDownloadException ex)
                             {
                                 if (!HandleFatalGameFileUpdateException(
                                     ex,
@@ -648,8 +673,10 @@ namespace PD2Launcherv2
 
                     if (!noFilterUpdate)
                     {
+                        Debug.Assert(offlinePolicy != null);
+
                         // Make this step obey IsDisableUpdates and also bail in case of _isOffline not to produce more errors
-                        if (!workOffline && !_isOffline)
+                        if (!offlinePolicy.Value.ForceOffline() && !_isOffline)
                         {
                             var selectedAuthorAndFilter = _localStorage.LoadSection<SelectedAuthorAndFilter>(StorageKey.SelectedAuthorAndFilter);
                             if (selectedAuthorAndFilter?.selectedFilter != null)
