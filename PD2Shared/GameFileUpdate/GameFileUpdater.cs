@@ -1376,12 +1376,12 @@ namespace PD2Shared.GameFileUpdate
         }
 
         public async Task UpdateAsync(
-            bool workOffline,
+            OfflinePolicy offlinePolicy,
             UpdateMode updateMode,
             bool useHttp2,
             FileUpdateModel fileUpdateModel,
             IProgress<ProgressValues.IData>? progress = null,
-            IProgress<string>? disabledTextProgress = null,
+            IProgress<string>? stageTextProgress = null,
             IProgress<bool>? offlineIndicatorProgress = null,
             IProgress<bool>? downloadErrorIndicatorProgress = null,
             CancellationToken cancellationToken = default)
@@ -1423,7 +1423,7 @@ namespace PD2Shared.GameFileUpdate
             httpClient.DefaultRequestHeaders.UserAgent.Clear();
             httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("PD2Launcher", Constants.VersionString));
 
-            L.CallerWrite(workOffline ? LogEventLevel.Warning : LogEventLevel.Information, $"Attempting to work {(workOffline ? "OFFLINE" : "online")}...");
+            L.CallerWrite(offlinePolicy.AllowOffline() ? LogEventLevel.Information : LogEventLevel.Warning, $"Using {offlinePolicy} {nameof(OfflinePolicy)}");
             L.CallerWrite(updateMode.IsNormal() ? LogEventLevel.Information : LogEventLevel.Warning, $"Using {updateMode} {nameof(UpdateMode)}");
             L.CallerInformation($"Using HttpClient with HTTP/{httpClient.DefaultRequestVersion}");
 
@@ -1489,14 +1489,14 @@ namespace PD2Shared.GameFileUpdate
             bool isOffline = true;
             Exception? metadataEx = null;
 
-            // ...unless working offline
-            if (workOffline)
+            // ...unless forcefully working offline
+            if (offlinePolicy.ForceOffline())
             {
                 L.CallerWarning($"Skipping metadata download due to working OFFLINE...");
             }
             else
             {
-                disabledTextProgress?.Report("Metadata...");
+                stageTextProgress?.Report("Metadata...");
 
                 ManifestEntry[] metadataEntries = Array.Empty<ManifestEntry>();
 
@@ -1527,7 +1527,7 @@ namespace PD2Shared.GameFileUpdate
                         offlineIndicatorProgress?.Report(true);
                     }
 
-                    L.CallerError(ex.InnerException, $"{nameof(DownloadMetadata)} threw");
+                    L.CallerError(ex.InnerException, $"{nameof(DownloadMetadata)}() threw");
                 }
 
                 if (metadataEx == null)
@@ -1539,7 +1539,7 @@ namespace PD2Shared.GameFileUpdate
                         offlineIndicatorProgress?.Report(true);
 
                         // This should really never happen, but if the retrieved metadata is, in fact, invalid, it's impossible to proceed.
-                        throw new InvalidMetadataRetrieved();
+                        throw new InvalidMetadataRetrievedException();
                     }
 
                     // ...and merge with manifestEntries
@@ -1591,10 +1591,16 @@ namespace PD2Shared.GameFileUpdate
                 offlineIndicatorProgress?.Report(isOffline);
             }
 
+            if (isOffline && offlinePolicy.ForceOnline())
+            {
+                // Running forcefully online, yet unable to retrieve fresh metadata.
+                throw new CannotRetrieveMetadataException(metadataEx);
+            }
+
             if (isOffline && !ctx.manifestEntries.Any())
             {
                 // Running offline with no prior manifest
-                throw new OfflineInvalidManifest(metadataEx);
+                throw new OfflineInvalidManifestException(metadataEx);
             }
 
             // Validate files according to the manifest and, if needed, determine files to restore and to download
@@ -1602,7 +1608,7 @@ namespace PD2Shared.GameFileUpdate
             var filesToRestore = Array.Empty<WorkItem>();
             var filesToDownload = Array.Empty<WorkItem>();
 
-            disabledTextProgress?.Report("Validating...");
+            stageTextProgress?.Report("Validating...");
             {
                 using var loggedScope = new LoggedScope("Validating...");
 
@@ -1735,7 +1741,7 @@ namespace PD2Shared.GameFileUpdate
             // Validation failed and some files need to be re-downloaded, which is impossible
             if (isOffline && filesToDownload.Any())
             {
-                throw new OfflineNeedsDownload(metadataEx);
+                throw new OfflineNeedsDownloadException(metadataEx);
             }
 
             DownloadResult[] downloadResults = Array.Empty<DownloadResult>();
@@ -1757,7 +1763,7 @@ namespace PD2Shared.GameFileUpdate
 
                 if (filesMissingSize.Any())
                 {
-                    disabledTextProgress?.Report("Querying...");
+                    stageTextProgress?.Report("Querying...");
 
                     var initialSize = updateMode.IsReset() ? 0 :
                         filesToDownload
@@ -1774,7 +1780,7 @@ namespace PD2Shared.GameFileUpdate
                     await SaveManifest(manifestPath, ctx.manifestEntries, ct: default).ConfigureAwait(false);
                 }
 
-                disabledTextProgress?.Report("Downloading...");
+                stageTextProgress?.Report("Downloading...");
 
                 // Prune PartialDownloads before starting downloads.
                 // These should have been already assigned to their respective WorkItems before Validation.
@@ -1852,7 +1858,7 @@ namespace PD2Shared.GameFileUpdate
 
                 if (restorableFiles.Any())
                 {
-                    disabledTextProgress?.Report("Restoring...");
+                    stageTextProgress?.Report("Restoring...");
 
                     await RestoreFilesAsync(restorableFiles, parallelOptions.CancellationToken, progress).ConfigureAwait(false);
                 }

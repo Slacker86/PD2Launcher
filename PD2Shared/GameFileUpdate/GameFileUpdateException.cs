@@ -27,23 +27,29 @@
         public FatalGameFileUpdateException(Exception? innerException = null, string? message = null) : base(innerException, message) { }
     }
 
-    // Offline (fresh metadata not retrieved, either due to an error or being forced to work offline) and the available manifest (if any) contains no data to work with
-    public class OfflineInvalidManifest : FatalGameFileUpdateException
+    // Fresh metadata not retrieved due to an error, despite being forced to work online
+    public class CannotRetrieveMetadataException : FatalGameFileUpdateException
     {
-        public OfflineInvalidManifest(Exception? innerException = null, string? message = null) : base(innerException, message) { }
+        public CannotRetrieveMetadataException(Exception? innerException = null, string? message = null) : base(innerException, message) { }
+    }
+
+    // Offline (fresh metadata not retrieved, either due to an error or being forced to work offline) and the available manifest (if any) contains no data to work with
+    public class OfflineInvalidManifestException : FatalGameFileUpdateException
+    {
+        public OfflineInvalidManifestException(Exception? innerException = null, string? message = null) : base(innerException, message) { }
     }
 
     // Retrieved metadata appears to be invalid (rare)
-    public class InvalidMetadataRetrieved : FatalGameFileUpdateException
+    public class InvalidMetadataRetrievedException : FatalGameFileUpdateException
     {
-        public InvalidMetadataRetrieved(Exception? innerException = null, string? message = null) : base(innerException, message) { }
+        public InvalidMetadataRetrievedException(Exception? innerException = null, string? message = null) : base(innerException, message) { }
     }
 
     // Offline (fresh metadata not retrieved, either due to an error or being forced to work offline),
     // validation failed based on the available manifest and files need to be re-downloaded, which is impossible.
-    public class OfflineNeedsDownload : FatalGameFileUpdateException
+    public class OfflineNeedsDownloadException : FatalGameFileUpdateException
     {
-        public OfflineNeedsDownload(Exception? innerException = null, string? message = null) : base(innerException, message) { }
+        public OfflineNeedsDownloadException(Exception? innerException = null, string? message = null) : base(innerException, message) { }
     }
 
     // Base download failure exception
