@@ -274,8 +274,6 @@ namespace PD2Launcherv2
             Messenger.Default.Register<RendererChangeMessage>(this, OnRendererChanged);
             DataContext = this;
 
-            this.Closed += MainWindow_Closed;
-
             // Load or setup default file update model
             FileUpdateModel storeUpdate = _localStorage.LoadSection<FileUpdateModel>(StorageKey.FileUpdateModel) ?? new FileUpdateModel
             {
@@ -358,6 +356,8 @@ namespace PD2Launcherv2
         protected override void OnClosed(EventArgs e)
         {
             _autoCloseHwndSource?.Dispose();
+
+            SaveWindowPosition();
 
             base.OnClosed(e);
         }
@@ -1297,7 +1297,7 @@ namespace PD2Launcherv2
             this.Top = (screenHeight - this.Height) / 2;
         }
 
-        private void MainWindow_Closed(object sender, EventArgs e)
+        private void SaveWindowPosition()
         {
             var windowPosition = new WindowPositionModel
             {
