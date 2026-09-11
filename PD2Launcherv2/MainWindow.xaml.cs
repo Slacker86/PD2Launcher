@@ -260,13 +260,6 @@ namespace PD2Launcherv2
             LoadConfiguration();
             LoadOptions();
 
-            CheckGlCtxAndPrompt(
-                // <!> This property is incredibly ambiguous
-                usesD2gl: _localStorage.LoadSection<LauncherArgs>(StorageKey.LauncherArgs).graphics == false,
-                // <!> This is quite horrible and should be made into an enum
-                cncDdrawUsesOgl: _localStorage.LoadSection<DdrawOptions>(StorageKey.DdrawOptions).Renderer == "opengl"
-            );
-
             // Registering to receive NavigationMessage
             Messenger.Default.Register<NavigationMessage>(this, OnNavigationMessageReceived);
             Messenger.Default.Register<ConfigurationChangeMessage>(this, OnConfigurationChanged);
@@ -326,6 +319,18 @@ namespace PD2Launcherv2
 #else
                 CheckForUpdates();
 #endif
+        }
+
+        protected override void OnContentRendered(EventArgs e)
+        {
+            base.OnContentRendered(e);
+
+            CheckGlCtxAndPrompt(
+                // <!> This property is incredibly ambiguous
+                usesD2gl: _localStorage.LoadSection<LauncherArgs>(StorageKey.LauncherArgs).graphics == false,
+                // <!> This is quite horrible and should be made into an enum
+                cncDdrawUsesOgl: _localStorage.LoadSection<DdrawOptions>(StorageKey.DdrawOptions).Renderer == "opengl"
+            );
         }
 
         protected override void OnSourceInitialized(EventArgs e)
