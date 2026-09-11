@@ -4,6 +4,6 @@
     {
         // <!> This should really be a common enum and not a bool
         public bool UseD2GL { get; init; }
-        public bool CncDdrawUsesOGL { get; init; }
+        public bool CncDDrawUsesGL { get; init; }
     }
 }
