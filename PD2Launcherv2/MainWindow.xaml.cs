@@ -327,9 +327,9 @@ namespace PD2Launcherv2
 
             CheckGlCtxAndPrompt(
                 // <!> This property is incredibly ambiguous
-                usesD2gl: _localStorage.LoadSection<LauncherArgs>(StorageKey.LauncherArgs).graphics == false,
+                useD2GL: _localStorage.LoadSection<LauncherArgs>(StorageKey.LauncherArgs).graphics == false,
                 // <!> This is quite horrible and should be made into an enum
-                cncDdrawUsesOgl: _localStorage.LoadSection<DdrawOptions>(StorageKey.DdrawOptions).Renderer == "opengl"
+                cncDDrawUsesGL: _localStorage.LoadSection<DdrawOptions>(StorageKey.DdrawOptions).Renderer == "opengl"
             );
         }
 
@@ -1186,17 +1186,17 @@ namespace PD2Launcherv2
                 return;
             }
 
-            CheckGlCtxAndPrompt(message.UseD2GL, message.CncDdrawUsesOGL);
+            CheckGlCtxAndPrompt(message.UseD2GL, message.CncDDrawUsesGL);
         }
 
-        private static void CheckGlCtxAndPrompt(bool usesD2gl, bool cncDdrawUsesOgl)
+        private static void CheckGlCtxAndPrompt(bool useD2GL, bool cncDDrawUsesGL)
         {
-            if (!usesD2gl && !cncDdrawUsesOgl)
+            if (!useD2GL && !cncDDrawUsesGL)
             {
                 return;
             }
 
-            if (usesD2gl)
+            if (useD2GL)
             {
                 if (GlTest.BestCtx.GlCtxInfo == null && GlTest.BestCtx.StageReached.IndicatesGlFailure())
                 {

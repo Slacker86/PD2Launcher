@@ -110,7 +110,7 @@ namespace PD2Launcherv2.ViewModels
                     {
                         UseD2GL = !_isDdrawSelected,
                         // <!> This is quite horrible and should be made into an enum
-                        CncDdrawUsesOGL = _selectedRenderer == "opengl"
+                        CncDDrawUsesGL = _selectedRenderer == "opengl"
                     });
                 }
             }
@@ -335,7 +335,7 @@ namespace PD2Launcherv2.ViewModels
                     {
                         UseD2GL = !_isDdrawSelected,
                         // <!> This is quite horrible and should be made into an enum
-                        CncDdrawUsesOGL = _selectedRenderer == "opengl"
+                        CncDDrawUsesGL = _selectedRenderer == "opengl"
                     });
                 }
             }
