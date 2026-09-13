@@ -1386,6 +1386,7 @@ namespace PD2Shared.GameFileUpdate
             IProgress<string>? stageTextProgress = null,
             IProgress<bool>? offlineIndicatorProgress = null,
             IProgress<bool>? downloadErrorIndicatorProgress = null,
+            IProgress<IPAddress>? addEndPointIpProgress = null,
             CancellationToken cancellationToken = default)
         {
             using var loggedRoutine = new LoggedRoutine();
@@ -1455,6 +1456,7 @@ namespace PD2Shared.GameFileUpdate
                         IPAddress connectedIpAddress = ((IPEndPoint)socket.RemoteEndPoint!).Address.GetCleanAddress();
 
                         L.CallerDebug($"Connected to: {connCtx.DnsEndPoint.Host} -> {connectedIpAddress}");
+                        addEndPointIpProgress?.Report(connectedIpAddress);
 
                         return new NetworkStream(socket, ownsSocket: true);
                     }

@@ -11,6 +11,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Net;
 using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -51,6 +52,12 @@ namespace PD2Launcherv2
             Reset
         }
 
+        private class IPAddressStats
+        {
+            public int Count { get; set; }
+            public long AddedTimePoint { get; set; }
+        }
+
         public event PropertyChangedEventHandler PropertyChanged;
         private readonly ILocalStorage _localStorage;
         private readonly FileUpdateHelpers _fileUpdateHelpers;
@@ -85,6 +92,11 @@ namespace PD2Launcherv2
         private readonly Brush ErrorTextBrush;
 
         private bool _suppressRendererChangedMessages = false;
+
+        // EndPoint stats
+        Stopwatch _endPointStatsStopwatch = new();
+        Dictionary<IPAddress, IPAddressStats> _endPointIPAddressToStats = new();
+        TextBlock? _endPointStatsText = null;
 
         // Auto-close
         private static readonly TimeSpan AutoCloseTimeSpan = TimeSpan.FromSeconds(10);
@@ -577,6 +589,7 @@ namespace PD2Launcherv2
                                     new ProgressWithCookie<string>(_progressCookie, UpdatePlayButtonText),
                                     new ProgressWithCookie<bool>(_progressCookie, ToggleOffline),
                                     new ProgressWithCookie<bool>(_progressCookie, ToggleProgressErrorIndicator),
+                                    new ProgressWithCookie<IPAddress>(_progressCookie, EndPointStatsAddIPAddress),
                                     _currentCts.Token);
                             }
                             catch (OperationCanceledException ex) when (ex.CancellationToken == _currentCts.Token)
@@ -848,6 +861,7 @@ namespace PD2Launcherv2
             UpdatePlayButtonText("Updating...");
             PlayButton.IsEnabled = false;
 
+            EndPointStatsClear();
             UpdateProgressValues(new ProgressValues().Clear().Extract());
             DownloadProgressBar.Visibility = Visibility.Visible;
             AboutButton.IsEnabled = false;
@@ -885,6 +899,7 @@ namespace PD2Launcherv2
             _progressFileCountText = ProgressLargeText;
             _progressBytesText = ProgressSmallText1;
             _progressBytesPerSecText = ProgressSmallText2;
+            _endPointStatsText = ProgressSmallText3;
         }
 
         private void UseTotalProgressMapping()
@@ -896,6 +911,7 @@ namespace PD2Launcherv2
             _progressFileCountText = ProgressSmallText2;
             _progressBytesText = ProgressSmallText1;
             _progressBytesPerSecText = null;
+            _endPointStatsText = null;
         }
 
         private void UpdateProgressValues(ProgressValues.IData progressData)
@@ -904,6 +920,8 @@ namespace PD2Launcherv2
             if (progressData.FileCountSet) UpdateFileCountProgress(progressData.FileCount);
             if (progressData.BytesSet) UpdateBytesProgress(progressData.Bytes);
             if (progressData.BytesPerSecSet) UpdateBytesPerSecProgress(progressData.BytesPerSec);
+
+            EndPointStatsUpdateTextVisibility();
         }
 
         private void UpdateTotalProgress(double? progress)
@@ -986,6 +1004,73 @@ namespace PD2Launcherv2
 
             _progressBytesPerSecText.Text = $"({Formatting.FormatThroughputInMiB(progress.Bytes, progress.ElapsedMilliseconds)})";
             _progressBytesPerSecText.Visibility = Visibility.Visible;
+        }
+
+        private void EndPointStatsAddIPAddress(IPAddress ipAddress)
+        {
+            if (!_endPointIPAddressToStats.TryGetValue(ipAddress, out IPAddressStats? ipAddressStats))
+            {
+                ipAddressStats = new()
+                {
+                    Count = 1,
+                    AddedTimePoint = _endPointStatsStopwatch.ElapsedTicks
+                };
+
+                _endPointIPAddressToStats.Add(ipAddress, ipAddressStats);
+            }
+            else
+            {
+                ++ipAddressStats.Count;
+            }
+
+            EndPointStatsUpdateTextValue();
+            EndPointStatsUpdateTextVisibility();
+        }
+
+        private void EndPointStatsClear()
+        {
+            _endPointIPAddressToStats.Clear();
+            _endPointStatsStopwatch.Restart();
+
+            EndPointStatsUpdateTextVisibility();
+        }
+
+        private void EndPointStatsUpdateTextVisibility()
+        {
+            if (_endPointStatsText == null)
+            {
+                return;
+            }
+
+            bool shouldEndPointStatsBeVisible = (false
+                    || _progressTotalText?.Visibility == Visibility.Visible
+                    || _progressFileCountText?.Visibility == Visibility.Visible
+                    || _progressBytesText?.Visibility == Visibility.Visible
+                    || _progressBytesPerSecText?.Visibility == Visibility.Visible)
+                    && _endPointIPAddressToStats.Any();
+
+            _endPointStatsText!.Visibility = shouldEndPointStatsBeVisible ? Visibility.Visible : Visibility.Hidden;
+        }
+
+        private void EndPointStatsUpdateTextValue()
+        {
+            if (_endPointStatsText == null)
+            {
+                return;
+            }
+
+            var stats = _endPointIPAddressToStats
+                .Select(kvp => new
+                {
+                    IPAddress = kvp.Key,
+                    kvp.Value.Count,
+                    kvp.Value.AddedTimePoint
+                })
+                .OrderByDescending(s => s.Count)
+                .ThenBy(s => s.AddedTimePoint);
+
+            _endPointStatsText.Text = string.Join('\n', stats
+                .Select(s => $"{s.IPAddress}{(s.Count > 1 ? $"({s.Count})" : string.Empty)}"));
         }
 
         [MemberNotNull(nameof(_playButtonText))]

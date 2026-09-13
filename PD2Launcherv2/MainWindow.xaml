@@ -161,7 +161,7 @@
                         Grid.ColumnSpan="4">
 
                 <!-- First column: Play, Options, Loot buttons -->
-                <StackPanel Orientation="Vertical">
+                <StackPanel x:Name="LeftButtonsStackPanel" Orientation="Vertical">
                     <!-- Play Button -->
                     <Grid HorizontalAlignment="Left" VerticalAlignment="Top">
                         <local:BlankButtonWithText x:Name="PlayButton"
@@ -209,7 +209,7 @@
                 </StackPanel>
 
                 <!-- Second column: Cancel button and various progress text blocks -->
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Top" MaxHeight="{Binding ActualHeight, ElementName=LeftButtonsStackPanel, Mode=OneWay}">
                     <!-- Cancel button -->
                     <Grid Height="{Binding ActualHeight, ElementName=PlayButton, Mode=OneWay}"
                           Margin="5,0,5,0"
@@ -246,6 +246,10 @@
                                    Text="(666.66 MiB/s)"
                                    FontFamily="{DynamicResource BlizzMedium}"
                                    Foreground="{StaticResource GoldLighterBrush}"/>
+                        <TextBlock x:Name="ProgressSmallText3"
+                            Text="192.168.1.1(666)&#x0a;255.255.255.255(13)&#x0a;127.0.0.1"
+                            FontFamily="{DynamicResource BlizzMedium}"
+                            Foreground="{StaticResource GoldLighterBrush}" Margin="0,4,0,0"/>
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
