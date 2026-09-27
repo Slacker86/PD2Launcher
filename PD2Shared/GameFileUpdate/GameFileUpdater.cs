@@ -339,6 +339,24 @@ namespace PD2Shared.GameFileUpdate
             using var response = await httpClient.GetAsync(url, ct).ConfigureAwait(false);
             response.ThrowIfUnsuccessful();
 
+            if (response.Content.Headers.LastModified != null)
+            {
+                L.CallerInformation($"Metadata Last-Modified header: {response.Content.Headers.LastModified.Value.ToRfc1123()}");
+            }
+            else
+            {
+                L.CallerWarning("Metadata Last-Modified header unavailable.");
+            }
+
+            if (response.Headers.ETag != null)
+            {
+                L.CallerInformation($"Metadata ETag header: {response.Headers.ETag}");
+            }
+            else
+            {
+                L.CallerWarning("Metadata ETag header unavailable.");
+            }
+
             JObject rootNode;
 
             try
