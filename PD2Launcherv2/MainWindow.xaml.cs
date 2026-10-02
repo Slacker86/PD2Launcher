@@ -1854,13 +1854,14 @@ namespace PD2Launcherv2
                 _autoCloseProgressUpdateTimer!.Stop();
                 _autoCloseProgressUpdateTimer = null;
 
-                this.Dispatcher.Invoke(AutoCloseResetProgress);
-
                 _autoCloseGameProcess!.Exited -= AutoCloseGameProcessExited;
                 _autoCloseGameProcess = null;
 
                 _autoCloseActive = false;
             }
+
+            // Perform this outside the lock in case the main thread also attempted to acquire it
+            this.Dispatcher.Invoke(AutoCloseResetProgress);
 
             autoCloseThread?.Join();
 
