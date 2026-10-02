@@ -112,6 +112,10 @@ namespace PD2Launcherv2
         private readonly Stopwatch _autoCloseProgressUpdateStopwatch = new();
         private DispatcherTimer? _autoCloseProgressUpdateTimer = null;
 
+        private Process? _gameProcess = null;
+        private bool _applicationActive = false;
+        private bool _applicationDeactivated = false;
+
         private bool _isBeta;
         public bool IsBeta
         {
@@ -323,6 +327,17 @@ namespace PD2Launcherv2
                 L.CallerInformation($"Successfully registered auto-close message with IDs: '{AutoCloseMessageStringId}' -> 0x{AutoCloseMessageId,4:X}");
             }
 
+            Application.Current.Activated += (sender, e) =>
+            {
+                _applicationActive = true;
+            };
+
+            Application.Current.Deactivated += (sender, e) =>
+            {
+                _applicationActive = false;
+                _applicationDeactivated = true;
+            };
+
             // Don't try to update launcher in debug mode
             // TEST
 
@@ -331,6 +346,13 @@ namespace PD2Launcherv2
 #else
                 CheckForUpdates();
 #endif
+        }
+
+        private bool ApplicationDeactivated => _applicationDeactivated;
+
+        private void ResetApplicationDeactivated()
+        {
+            _applicationDeactivated = !_applicationActive;
         }
 
         protected override void OnContentRendered(EventArgs e)
@@ -373,6 +395,13 @@ namespace PD2Launcherv2
         protected override void OnClosed(EventArgs e)
         {
             _autoCloseHwndSource?.Dispose();
+
+            AutoCloseAbort();
+
+            if (_gameProcess != null)
+            {
+                _gameProcess.Exited -= GameProcessExited;
+            }
 
             SaveWindowPosition();
 
@@ -725,11 +754,12 @@ namespace PD2Launcherv2
                         UpdatePlayButtonText("Launching...");
 
                         bool useAutoClose = AutoCloseAfterLaunch;
-                        Process gameProcess;
+
+                        ResetApplicationDeactivated();
 
                         try
                         {
-                            gameProcess = _launchGameHelpers.LaunchGame(_localStorage, useAutoClose ? AutoCloseGameProcessExited : null);
+                            _gameProcess = _launchGameHelpers.LaunchGame(_localStorage, GameProcessExited);
                         }
                         catch (Exception ex)
                         {
@@ -741,11 +771,7 @@ namespace PD2Launcherv2
 
                         if (useAutoClose)
                         {
-                            AutoCloseBegin(gameProcess);
-                        }
-                        else
-                        {
-                            gameProcess.Dispose();
+                            AutoCloseBegin(_gameProcess);
                         }
 
                         await Task.Delay(TimeSpan.FromSeconds(1.5));
@@ -1833,7 +1859,7 @@ namespace PD2Launcherv2
             }
         }
 
-        private bool AutoCloseAbort(bool joinThread = true)
+        private bool AutoCloseAbort(bool joinThread = true, bool unsubscribeExitHandler = false)
         {
             Thread? autoCloseThread = null;
 
@@ -1854,7 +1880,10 @@ namespace PD2Launcherv2
                 _autoCloseProgressUpdateTimer!.Stop();
                 _autoCloseProgressUpdateTimer = null;
 
-                _autoCloseGameProcess!.Exited -= AutoCloseGameProcessExited;
+                if (unsubscribeExitHandler)
+                {
+                    _autoCloseGameProcess!.Exited -= GameProcessExited;
+                }
                 _autoCloseGameProcess = null;
 
                 _autoCloseActive = false;
@@ -1879,9 +1908,11 @@ namespace PD2Launcherv2
                     return false;
                 }
 
-                if (_autoCloseGameProcess!.Id != processId)
+                Debug.Assert(_autoCloseGameProcess != null);
+
+                if (_autoCloseGameProcess.Id != processId)
                 {
-                    L.CallerDebug($"Auto-close message received with non-matching PID {processId} != {_autoCloseGameProcess!.Id} (actual).");
+                    L.CallerDebug($"Auto-close message received with non-matching PID {processId} != {_autoCloseGameProcess.Id} (actual).");
 
                     return false;
                 }
@@ -1889,7 +1920,7 @@ namespace PD2Launcherv2
                 {
                     L.CallerDebug("Auto-close message received. Auto-closing...");
 
-                    AutoCloseAbort();
+                    AutoCloseAbort(unsubscribeExitHandler: true);
                     this.Close();
 
                     return true;
@@ -1900,6 +1931,34 @@ namespace PD2Launcherv2
         private void AutoCloseResetProgress()
         {
             AutoCloseProgressBar.Value = 0;
+        }
+
+        private void GameProcessExited(object? sender, EventArgs e)
+        {
+            // This will be called from a thread pool
+
+            Process? process = sender as Process;
+            bool wasSuddenExit = process != null && !ApplicationDeactivated;
+
+            AutoCloseGameProcessExited(sender, e);
+
+            if (wasSuddenExit)
+            {
+                Debug.Assert(process != null);
+
+                L.CallerError($"Game process terminated unexpectedly with {process.ExitCode:x} exit code.");
+
+                this.Dispatcher.Invoke(() =>
+                {
+                    MsgBox.Error($"Game process terminated unexpectedly with {process.ExitCode:x} exit code.");
+                });
+            }
+            else if (process != null)
+            {
+                L.CallerDebug($"Game process terminated with {process.ExitCode:x} exit code.");
+            }
+
+            process?.Dispose();
         }
 
         private void AutoCloseGameProcessExited(object? sender, EventArgs e)
@@ -1915,9 +1974,7 @@ namespace PD2Launcherv2
 
             if (sender is Process process)
             {
-                L.CallerDebug($"Auto-close aborted due to game process terminating with {process.ExitCode} exit code.");
-
-                process.Dispose();
+                L.CallerDebug($"Auto-close aborted due to game process terminating with {process.ExitCode:x} exit code.");
             }
             else
             {
@@ -1967,7 +2024,7 @@ namespace PD2Launcherv2
             }
             else
             {
-                if (AutoCloseAbort(joinThread: false))
+                if (AutoCloseAbort(joinThread: false, unsubscribeExitHandler: true))
                 {
                     L.CallerDebug("Auto-closing...");
                     this.Dispatcher.Invoke(this.Close);
