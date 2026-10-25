@@ -1162,6 +1162,7 @@ namespace PD2Launcherv2
             ProgressLargeText.Foreground = brush;
             ProgressSmallText1.Foreground = brush;
             ProgressSmallText2.Foreground = brush;
+            ProgressSmallText3.Foreground = brush;
         }
 
         private void onDownloadComplete()
