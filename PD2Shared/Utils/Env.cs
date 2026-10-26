@@ -37,6 +37,11 @@ namespace PD2Shared.Utils
             return Path.Combine(GetCwd(), "launcher.files");
         }
 
+        public static string GetBaseGameDirPath()
+        {
+            return Path.GetFullPath(Path.Combine(GetCwd(), ".."));
+        }
+
         public static Exception? CheckIfDirectoryIsWritable(string directoryPath)
         {
             var filePath = Path.Combine(directoryPath, Path.GetRandomFileName());
