@@ -29,6 +29,24 @@ namespace PD2Launcherv2
             return true;
         }
 
+        private static bool FailurePromptEx(Exception exception, string message)
+        {
+            if (MsgBox.Exception(
+                exception,
+                message + "\n" +
+                "\n" +
+                "Continue regardless?",
+                MessageBoxImage.Warning,
+                MessageBoxButton.YesNo,
+                MessageBoxResult.No) == MessageBoxResult.No)
+            {
+                return false;
+            }
+
+            L.CallerWarning("User ignored sanity check failure.");
+            return true;
+        }
+
         private static bool CheckGameDirPathEncoding()
         {
             string gameDirPath = Env.GetCwd();
