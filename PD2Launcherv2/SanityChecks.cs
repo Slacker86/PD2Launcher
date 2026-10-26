@@ -15,10 +15,19 @@ namespace PD2Launcherv2
     {
         private static bool FailurePrompt(string message)
         {
-            if (MsgBox.Warn(
+            return FailurePrompt(exception: null!, message);
+        }
+
+        private static bool FailurePrompt(Exception exception, string message)
+        {
+            L.CallerWarning("User being prompted upon sanity check failure...");
+
+            if (MsgBox.Exception(
+                exception,
                 message + "\n" +
                 "\n" +
                 "Continue regardless?",
+                MessageBoxImage.Warning,
                 MessageBoxButton.YesNo,
                 MessageBoxResult.No) == MessageBoxResult.No)
             {
