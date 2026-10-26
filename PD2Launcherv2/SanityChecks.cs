@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using Microsoft.Win32;
+using System.Diagnostics;
 using System.IO;
 using System.Text;
 using System.Windows;
@@ -210,6 +211,109 @@ namespace PD2Launcherv2
                 "This will render PD2 unable to run.");
         }
 
+        private static bool CheckD2RegistrySettings()
+        {
+            // Check whether D2's 'InstallPath' registry value is correct, i.e. it resolves to the expected base D2 directory path.
+            // Incorrect 'InstallPath', yet pointing to a valid (existing) directory, will lead PD2 astray resulting in failure to load base MPQs.
+            // Offer to remove the registry value if it's deemed incorrect as D2 will always recreate it if it's invalid.
+
+            const string HkcuD2Path = @"Software\Blizzard Entertainment\Diablo II";
+            const string InstallPathValueName = "InstallPath";
+
+            L.CallerInformation($"Opening registry key: '{Registry.CurrentUser}\\{HkcuD2Path}'...");
+
+            RegistryKey registryKey;
+
+            try
+            {
+                registryKey = Registry.CurrentUser.CreateSubKey(HkcuD2Path, writable: true);
+            }
+            catch (Exception ex)
+            {
+                return FailurePromptEx(
+                    ex,
+                    $"Unable to access Diablo II registry key: '{Registry.CurrentUser}\\{HkcuD2Path}'.\n" +
+                    "\n" +
+                    "If unchecked, PD2 might fail to load base MPQs.");
+            }
+
+            using (registryKey)
+            {
+                if (registryKey == null)
+                {
+                    L.CallerWarning($"Unable to create registry key: '{Registry.CurrentUser}\\{HkcuD2Path}'.");
+
+                    // The key could not be created, which is acceptable as long as it doesn't contain incorrect values.
+                    return true;
+                }
+
+                var installPath = (string?)registryKey.GetValue(InstallPathValueName);
+
+                if (installPath == null)
+                {
+                    L.CallerWarning($"Registry value '{InstallPathValueName}' not found.");
+
+                    // The value does not exist, which is acceptable.
+                    return true;
+                }
+
+                string installPathNormalized;
+
+                try
+                {
+                    installPathNormalized = Path.TrimEndingDirectorySeparator(Path.GetFullPath(installPath));
+                }
+                catch (Exception ex)
+                {
+                    L.CallerError(ex, "Path.GetFullPath() threw.");
+
+                    installPathNormalized = installPath;
+                }
+
+                string ExpectedPath = Env.GetBaseGameDirPath();
+
+                if (installPathNormalized != ExpectedPath)
+                {
+                    // The path must be valid (pointing to an existing directory), yet incorrect, to trip up PD2.
+                    if (Directory.Exists(installPathNormalized))
+                    {
+                        L.CallerWarning($"Registry value '{InstallPathValueName}' does not match D2's expected path: '{ExpectedPath}' != '{installPath}' (actual).");
+                        L.CallerDebug("Prompting the user...");
+
+                        if (MsgBox.Warn(
+                            $"Diablo II's registry value '{InstallPathValueName}' does not match Diablo II's actual path.\n" +
+                            "This can lead to PD2 failing to load base MPQs.\n" +
+                            "\n" +
+                            "Attempt to remove the offending value?",
+                            MessageBoxButton.YesNo,
+                            MessageBoxResult.Yes) == MessageBoxResult.No)
+                        {
+                            L.CallerWarning("User declined to remove the offending value.");
+
+                            return true;
+                        }
+
+                        L.CallerInformation($"Removing '{InstallPathValueName}'...");
+                        registryKey.DeleteValue(InstallPathValueName);
+
+                        return true;
+                    }
+                    else
+                    {
+                        L.CallerWarning($"Registry value '{InstallPathValueName}' is an invalid path and will be ignored: '{installPath}'.");
+
+                        return true;
+                    }
+                }
+                else
+                {
+                    L.CallerInformation($"Registry value '{InstallPathValueName}' matches D2's expected path.");
+
+                    return true;
+                }
+            }
+        }
+
         private static bool TestGlContext()
         {
             using LoggedRoutine loggedRoutine = new();
@@ -274,6 +378,7 @@ namespace PD2Launcherv2
                 () => CheckGameDirPathEncoding(),
                 () => CheckIfDirectoriesWritable(),
                 () => CheckMsvc2019Runtime(),
+                () => CheckD2RegistrySettings(),
                 () => TestGlContext()
             };
 
