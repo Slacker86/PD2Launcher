@@ -436,6 +436,7 @@ namespace PD2Launcherv2
             Debug.WriteLine($"Process path: {Environment.ProcessPath}");
 
             UpdateUIForOperationStart(); // Prepare the UI for the update operation
+            UpdatePlayButtonText("Launcher...");
 
             // Initialize the progress handler to update progress bar
             var progressHandler = new Progress<double>(value =>
@@ -885,8 +886,8 @@ namespace PD2Launcherv2
         {
             Mouse.OverrideCursor = Cursors.AppStarting;
 
-            UpdatePlayButtonText("Updating...");
             PlayButton.IsEnabled = false;
+            UpdatePlayButtonText(PlayButton.Text);
 
             EndPointStatsClear();
             UpdateProgressValues(new ProgressValues().Clear().Extract());
