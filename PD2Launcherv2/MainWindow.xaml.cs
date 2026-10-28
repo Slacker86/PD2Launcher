@@ -85,7 +85,6 @@ namespace PD2Launcherv2
         int _progressBytesPrecision;
 
         private string _playButtonText;
-        private bool _playButtonTextLocked;
         private bool _progressErrorShown;
 
         private readonly Brush NormalTextBrush;
@@ -886,7 +885,6 @@ namespace PD2Launcherv2
         {
             Mouse.OverrideCursor = Cursors.AppStarting;
 
-            _playButtonTextLocked = true;
             UpdatePlayButtonText("Updating...");
             PlayButton.IsEnabled = false;
 
@@ -913,7 +911,6 @@ namespace PD2Launcherv2
             ToggleProgressErrorIndicator(false);
 
             PlayButton.IsEnabled = true;
-            _playButtonTextLocked = false;
             UpdatePlayButtonText("Play");
 
             Mouse.OverrideCursor = null;
@@ -1141,7 +1138,7 @@ namespace PD2Launcherv2
 
         private void RefreshPlayButtonText()
         {
-            if (_playButtonTextLocked)
+            if (!PlayButton.IsEnabled)
             {
                 PlayButton.Text = _playButtonText;
             }
