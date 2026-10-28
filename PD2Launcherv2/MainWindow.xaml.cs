@@ -452,7 +452,10 @@ namespace PD2Launcherv2
             });
 
             // Define the completion action to reset UI after update
-            Action onDownloadComplete = ResetUI;
+            void onDownloadComplete()
+            {
+                Dispatcher.Invoke(ResetUI);
+            }
 
             // Trigger the update check and download process
             await UpdateLauncherCheck(_localStorage, progressHandler, onDownloadComplete);
