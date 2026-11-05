@@ -8,7 +8,7 @@ namespace PD2Shared
         // This private constant is expected to conform with Semantic Versioning 2.0.0 (https://semver.org/spec/v2.0.0.html),
         // otherwise below SemVersion.Parse() call will throw immediately.
         // (This value could be generated and ingested during build as well).
-        private const string VersionString = "2.14.4";
+        private const string VersionString = "2.15.0-beta";
 
         public static readonly SemVersion Version = SemVersion.Parse(VersionString);
 
