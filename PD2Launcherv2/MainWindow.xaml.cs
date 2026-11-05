@@ -297,7 +297,7 @@ namespace PD2Launcherv2
             }
 
             this.Title = MsgBox.DefaultDialogTitle;
-            this.VersionText.Text = PD2Shared.Constants.VersionString;
+            this.VersionText.Text = PD2Shared.Constants.Version.ToString();
             UseFileCountProgressMapping();
             ResetUI();
             ToggleOffline(show: false);

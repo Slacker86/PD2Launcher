@@ -177,7 +177,7 @@ namespace PD2Shared.Logging
             Serilog.Debugging.SelfLog.Disable();
 #endif
 
-            L.CallerInformation($"{Env.ProcessFileName} {Constants.VersionString}");
+            L.CallerInformation($"{Env.ProcessFileName} {Constants.Version}");
             L.CallerInformation($"Process path: '{Env.ProcessPath}'");
             L.CallerInformation($"Current working directory: '{Env.GetCwd()}'");
             L.CallerInformation($"Log file path: '{_logPath}'");

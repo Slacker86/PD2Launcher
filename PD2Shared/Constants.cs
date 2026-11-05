@@ -1,11 +1,16 @@
 ﻿using PD2Shared.Models;
+using Semver;
 
 namespace PD2Shared
 {
     public static class Constants
     {
-        // This could be generated and ingested during build as well
-        public const string VersionString = "2.14.4";
+        // This private constant is expected to conform with Semantic Versioning 2.0.0 (https://semver.org/spec/v2.0.0.html),
+        // otherwise below SemVersion.Parse() call will throw immediately.
+        // (This value could be generated and ingested during build as well).
+        private const string VersionString = "2.14.4";
+
+        public static readonly SemVersion Version = SemVersion.Parse(VersionString);
 
         public static class LauncherUpdate
         {

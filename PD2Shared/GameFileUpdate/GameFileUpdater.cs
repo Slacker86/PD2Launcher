@@ -1500,7 +1500,7 @@ namespace PD2Shared.GameFileUpdate
             };
 
             httpClient.DefaultRequestHeaders.UserAgent.Clear();
-            httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("PD2Launcher", Constants.VersionString));
+            httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("PD2Launcher", Constants.Version.ToString()));
 
             L.CallerWrite(offlinePolicy.AllowOffline() ? LogEventLevel.Information : LogEventLevel.Warning, $"Using {offlinePolicy} {nameof(OfflinePolicy)}");
             L.CallerWrite(updateMode.IsNormal() ? LogEventLevel.Information : LogEventLevel.Warning, $"Using {updateMode} {nameof(UpdateMode)}");

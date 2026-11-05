@@ -14,10 +14,7 @@ try {
 
     $csContent = Get-Content $constantsPath -Raw
 
-    # Accepts versions such as:
-    # v 2.14.1
-    # v 2.14.AWS1
-    # v 2.14.SUCCESS
+    # Blindly extract version string as found in Constants.cs assuming it is guaranteed to conform with Semantic Versioning 2.0.0 (https://semver.org/spec/v2.0.0.html)
     $versionMatch = [regex]::Match(
         $csContent,
         'VersionString\s*=\s*"([^"]+)"'
