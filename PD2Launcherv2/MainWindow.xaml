@@ -142,14 +142,14 @@
                              NormalImageSource="pack://application:,,,/Resources/Images/minimize.jpg"
                              PressedImageSource="pack://application:,,,/Resources/Images/minimize_pressed.jpg"
                              Click="MinimizeButton_Click"
-                             TabIndex="6" />
+                             TabIndex="8" />
             <local:CustomImageButton x:Name="CloseButton"
                              Margin="5,0,0,0"
                              NormalImageSource="pack://application:,,,/Resources/Images/close.jpg"
                              PressedImageSource="pack://application:,,,/Resources/Images/close_pressed.jpg"
                              DisabledImageSource="pack://application:,,,/Resources/Images/close_disabled.png"
                              Click="CloseButton_Click"
-                             TabIndex="7"/>
+                             TabIndex="9"/>
         </StackPanel>
 
         <!-- Aligned Button Grid (bottom center under news box) -->
@@ -205,7 +205,8 @@
                               Foreground="{DynamicResource GoldBrush}"
                               FontFamily="{StaticResource BlizzMedium}"
                               FontSize="12"
-                              Opacity="0.75"/>
+                              Opacity="0.75"
+                              TabIndex="4"/>
                 </StackPanel>
 
                 <!-- Second column: Cancel button and various progress text blocks -->
@@ -260,7 +261,7 @@
                 <local:BlankButtonWithText x:Name="DonateButton"
                                  Text="Donate here"
                                  Click="DonateButton_Click"
-                                 TabIndex="4" />
+                                 TabIndex="5" />
 
                 <!-- Donate Text Box -->
                 <StackPanel Width="{Binding ActualWidth, ElementName=DonateButton, Mode=OneWay}" Margin="0,5,0,0">
@@ -294,7 +295,7 @@
                                              HorizontalAlignment="Center"
                                              VerticalAlignment="Center"
                                              Click="GoToLogButton_Click"
-                                             TabIndex="5"/>
+                                             TabIndex="6"/>
                     <local:CustomImageButton x:Name="AboutButton"
                                              Margin="5,0,0,0"
                                              NormalImageSource="pack://application:,,,/Resources/Images/btn_switch.jpg"
@@ -303,7 +304,7 @@
                                              Command="{Binding OpenAboutCommand}"
                                              HorizontalAlignment="Center"
                                              VerticalAlignment="Center"
-                                             TabIndex="5"/>
+                                             TabIndex="7"/>
                 </StackPanel>
 
                 <!-- Version -->
