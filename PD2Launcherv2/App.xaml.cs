@@ -87,6 +87,21 @@ namespace PD2Launcherv2
         /// <param name="e">Contains the arguments for the startup event.</param>
         protected override async void OnStartup(StartupEventArgs e)
         {
+            // This is also subject to change, but let's keep the convention and make this case-insensitive (for now).
+            // This will require a proper command-line handling overhaul.
+            bool useCwd = e.Args.Any(arg => arg.Equals("--use-cwd", StringComparison.OrdinalIgnoreCase));
+            string origPwd = Env.GetCwd();
+            string expectedPwd = origPwd;
+
+            // Preemptively change working directory to match the Launcher's directory as soon as possible.
+            // This is a desperate workaround until the whole working directory debacle and other inconsistencies get thoroughly addressed.
+            if (!useCwd)
+            {
+                expectedPwd = Env.ProcessDirPath;
+
+                Env.SetCwd(expectedPwd);
+            }
+
             CleanUpTempStorageFiles();
             var currentProcessName = Process.GetCurrentProcess().ProcessName;
             if (Process.GetProcessesByName(currentProcessName).Length > 1)
@@ -150,6 +165,30 @@ namespace PD2Launcherv2
 
             // This is not expected to throw
             Logging.SetUp(createConsole);
+
+            // Since the working directory could have been unexpectedly changed by this point, log any such occurrences.
+            if (Env.GetCwd() != expectedPwd)
+            {
+                L.CallerWarning($"Working directory unexpectedly changed to: '{Env.GetCwd()}'.");
+            }
+            else
+            {
+                if (useCwd)
+                {
+                    L.CallerWarning($"Using original working directory: '{expectedPwd}'...");
+                }
+                else
+                {
+                    if (origPwd != expectedPwd)
+                    {
+                        L.CallerWarning($"Working directory has been preemptively changed from: '{origPwd}' to: '{expectedPwd}'.");
+                    }
+                    else
+                    {
+                        L.CallerInformation($"Using expected working directory: '{expectedPwd}'...");
+                    }
+                }
+            }
 
             if (Wine.IsRunningUnderWine)
             {

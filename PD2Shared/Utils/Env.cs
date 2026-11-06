@@ -32,6 +32,11 @@ namespace PD2Shared.Utils
             return Environment.CurrentDirectory;
         }
 
+        public static void SetCwd(string path)
+        {
+            Environment.CurrentDirectory = path;
+        }
+
         public static string GetLauncherFilesRootDirPath()
         {
             return Path.Combine(GetCwd(), "launcher.files");
