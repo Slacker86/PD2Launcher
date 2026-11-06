@@ -2,10 +2,12 @@
   "profiles": {
     "PD2Launcherv2": {
       "commandName": "Project",
+      "commandLineArgs": "--use-cwd",
       "workingDirectory": "C:\\Program Files (x86)\\Diablo II\\ProjectD2"
     },
     "CanightWD": {
       "commandName": "Project",
+      "commandLineArgs": "--use-cwd",
       "workingDirectory": "E:\\Diablo II\\ProjectD2Test"
     }
   }
