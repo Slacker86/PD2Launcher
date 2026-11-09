@@ -1,11 +1,12 @@
-﻿using System.Text;
+﻿using PD2Shared;
+using System.Text;
 using System.Windows;
 
 namespace PD2Launcherv2.Utils
 {
     public static class MsgBox
     {
-        public const string DefaultDialogTitle = "Project Diablo 2 Launcher";
+        public static readonly string DefaultDialogTitle = $"Project Diablo 2 Launcher{(Constants.VersionIsBeta ? " BETA" : string.Empty)}";
 
         private static MessageBoxResult ShowWrapper(string messageBoxText, MessageBoxImage icon, MessageBoxButton button, MessageBoxResult defaultResult = MessageBoxResult.None)
         {
