@@ -93,8 +93,8 @@ namespace PD2Launcherv2
         private bool _suppressRendererChangedMessages = false;
 
         // EndPoint stats
-        Stopwatch _endPointStatsStopwatch = new();
-        Dictionary<IPAddress, IPAddressStats> _endPointIPAddressToStats = new();
+        readonly Stopwatch _endPointStatsStopwatch = new();
+        readonly Dictionary<IPAddress, IPAddressStats> _endPointIPAddressToStats = new();
         TextBlock? _endPointStatsText = null;
 
         // Auto-close
