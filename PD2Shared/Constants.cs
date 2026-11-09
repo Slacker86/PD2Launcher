@@ -12,6 +12,8 @@ namespace PD2Shared
 
         public static readonly SemVersion Version = SemVersion.Parse(VersionString);
 
+        public static bool VersionIsBeta => Version.PrereleaseIdentifiers.Any(i => i.ToString().Contains("beta", StringComparison.OrdinalIgnoreCase));
+
         public static class LauncherUpdate
         {
             public const string LegacyGcpMetadataUrl =
