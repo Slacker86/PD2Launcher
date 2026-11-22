@@ -29,6 +29,9 @@ namespace PD2Shared.GameFileUpdate
         // A reasonably small buffer of just one page
         private const int DefaultNetworkStreamBufferSize = 4096;
 
+        // Require at least Windows 11 build 22000 to enable TCP keep-alive
+        private static readonly bool TcpKeepAliveTuningSupported = OperatingSystem.IsWindowsVersionAtLeast(10, 0, 22000);
+
         private readonly Dictionary<FileUpdateModel, Context> _fileUpdateModelToContext = new(new FileUpdateModelEqualityComparer());
 
         private static int CalculateFileBufferSize(long fileSize)
@@ -1476,11 +1479,14 @@ namespace PD2Shared.GameFileUpdate
 
                     try
                     {
-                        // Apply TCP keep-alive as well (based on the above example)
-                        socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
-                        socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 5);
-                        socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 5);
-                        socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
+                        if (TcpKeepAliveTuningSupported)
+                        {
+                            // Apply TCP keep-alive as well (based on the above example)
+                            socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
+                            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveTime, 5);
+                            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveInterval, 5);
+                            socket.SetSocketOption(SocketOptionLevel.Tcp, SocketOptionName.TcpKeepAliveRetryCount, 3);
+                        }
 
                         await socket.ConnectAsync(ipAddresses, connCtx.DnsEndPoint.Port, ct).ConfigureAwait(false);
 
@@ -1521,6 +1527,11 @@ namespace PD2Shared.GameFileUpdate
             L.CallerWrite(offlinePolicy.AllowOffline() ? LogEventLevel.Information : LogEventLevel.Warning, $"Using {offlinePolicy} {nameof(OfflinePolicy)}");
             L.CallerWrite(updateMode.IsNormal() ? LogEventLevel.Information : LogEventLevel.Warning, $"Using {updateMode} {nameof(UpdateMode)}");
             L.CallerInformation($"Using HttpClient with HTTP/{httpClient.DefaultRequestVersion}");
+
+            if (!TcpKeepAliveTuningSupported)
+            {
+                L.CallerWarning($"Not using TCP keep-alive on '{Environment.OSVersion.VersionString}'");
+            }
 
             Uri remoteUrlRoot = new(fileUpdateModel.Client);
             Uri metadataUrl = new(remoteUrlRoot, "metadata.json");
