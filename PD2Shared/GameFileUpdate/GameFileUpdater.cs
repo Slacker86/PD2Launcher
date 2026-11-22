@@ -991,9 +991,25 @@ namespace PD2Shared.GameFileUpdate
             }
             catch (Exception ex)
             {
-                L.CallerError(ex, $"{url}: download failed.");
+                // Attempt to resume a download after any failure
 
-                return new DownloadResult(ex);
+                if (totalBytesWritten > 0)
+                {
+                    L.CallerError(ex, $"{url}: download failed at {totalBytesWritten} ({Formatting.FormatSizeInMiB(totalBytesWritten)})");
+                    return new DownloadResult(
+                        ex,
+                        totalBytesWritten,
+                        (Xxh3Hash)xxh3Digest.GetHash(),
+                        xxh3Digest,
+                        referenceMd5Hash,
+                        digest,
+                        actualExpectedHash);
+                }
+                else
+                {
+                    L.CallerError(ex, $"{url}: download failed.");
+                    return new DownloadResult(ex);
+                }
             }
         }
 
@@ -1906,13 +1922,16 @@ namespace PD2Shared.GameFileUpdate
             }
 
             // Rethrow any exceptions from DownloadFilesAsync()
-            if (downloadResults.Any(r => !r.IsSuccess && r.PartialDownload == null))
+            var failedDownloadResults = downloadResults
+                .Where(r => !r.IsSuccess && !r.IsUserCanceled(parallelOptions.CancellationToken))
+                .ToArray();
+
+            if (failedDownloadResults.Any())
             {
-                throw new DownloadException(new AggregateException(downloadResults
-                    .Where(r => !r.IsSuccess && r.PartialDownload == null)
+                throw new DownloadException(new AggregateException(failedDownloadResults
                     .Select(r => r.Exception!)
                     .ToArray()),
-                    $"Failed downloads: {downloadResults.Count(r => !r.IsSuccess && r.PartialDownload == null)}/{downloadResults.Length}");
+                    $"Failed downloads: {failedDownloadResults.Length}/{downloadResults.Length}");
             }
 
             // Rethrow any exceptions from TrySaveManifest()

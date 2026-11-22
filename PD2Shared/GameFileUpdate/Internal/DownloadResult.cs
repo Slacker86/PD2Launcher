@@ -34,6 +34,11 @@
 
         public bool IsSuccess { get => Exception == null; }
 
+        public bool IsUserCanceled(CancellationToken cancellationToken)
+        {
+            return !IsSuccess && Exception is OperationCanceledException ex && ex.CancellationToken == cancellationToken;
+        }
+
         public Exception? Exception { get; } = null;
         public Xxh3Hash? Xxh3Hash { get; } = null;
         public PartialDownload? PartialDownload { get; } = null;
