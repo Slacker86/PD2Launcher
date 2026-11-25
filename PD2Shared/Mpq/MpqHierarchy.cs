@@ -1,4 +1,5 @@
 ﻿using System.Collections.Immutable;
+using PD2Shared.GameFileUpdate;
 using PD2Shared.Logging;
 using PD2Shared.Mpq.Internal;
 using static PD2Shared.Logging.LoggingStatic;
@@ -44,7 +45,10 @@ namespace PD2Shared.Mpq
             UnknownFileCount = unknownFileCount;
         }
 
-        public static async Task<MpqHierarchy> CreateAsync(string mpqDirPath, CancellationToken cancellationToken = default)
+        public static async Task<MpqHierarchy> CreateAsync(
+            string mpqDirPath,
+            IProgress<ProgressValues.IData>? progress = null,
+            CancellationToken cancellationToken = default)
         {
             using LoggedRoutine loggedRoutine = new();
 
@@ -53,7 +57,18 @@ namespace PD2Shared.Mpq
             object totalsLock = new();
 
             SortedDictionary<KnownMpq, List<PathAndSize>> mpqToPathsAndSizes = new();
+            int mpqsProcessed = 0;
+            long totalBytesDiscovered = 0;
             uint unknownFileCountTotal = 0;
+
+            var updateThrottle = new UpdateThrottle();
+
+            progress?.Report(new ProgressValues()
+                .Clear()
+                .SetTotal(mpqsProcessed, KnownMpqEx.Values.Length)
+                .SetFileCount(mpqsProcessed, KnownMpqEx.Values.Length)
+                .SetBytes(totalBytesDiscovered)
+                .Extract());
 
             ParallelOptions parallelOptions = new()
             {
@@ -79,6 +94,21 @@ namespace PD2Shared.Mpq
                         if (StormLib.GetLastError() == StormLib.Error.ERROR_FILE_NOT_FOUND)
                         {
                             L.CallerWarning($"{mpqFileName}: not found");
+
+                            lock (totalsLock)
+                            {
+                                ++mpqsProcessed;
+
+                                updateThrottle.UpdateIfPossible(() =>
+                                {
+                                    progress?.Report(new ProgressValues()
+                                        .SetTotal(mpqsProcessed, KnownMpqEx.Values.Length)
+                                        .SetFileCount(mpqsProcessed, KnownMpqEx.Values.Length)
+                                        .SetBytes(totalBytesDiscovered)
+                                        .Extract());
+                                });
+                            }
+
                             return;
                         }
                         else
@@ -235,10 +265,27 @@ namespace PD2Shared.Mpq
 
                 lock (totalsLock)
                 {
+                    ++mpqsProcessed;
                     mpqToPathsAndSizes.Add(mpq, mpqPathsAndSizes);
+                    totalBytesDiscovered += mpqPathsAndSizes.Sum(pathAndSize => pathAndSize.Size);
                     unknownFileCountTotal += mpqUnknownFileCount;
+
+                    updateThrottle.UpdateIfPossible(() =>
+                    {
+                        progress?.Report(new ProgressValues()
+                            .SetTotal(mpqsProcessed, KnownMpqEx.Values.Length)
+                            .SetFileCount(mpqsProcessed, KnownMpqEx.Values.Length)
+                            .SetBytes(totalBytesDiscovered)
+                            .Extract());
+                    });
                 }
             }).ConfigureAwait(false);
+
+            progress?.Report(new ProgressValues()
+                .SetTotal(mpqsProcessed, KnownMpqEx.Values.Length)
+                .SetFileCount(mpqsProcessed, KnownMpqEx.Values.Length)
+                .SetBytes(totalBytesDiscovered)
+                .Extract());
 
             // Combine all Task results
 

@@ -755,17 +755,24 @@ namespace PD2Launcherv2
 
                         if (mpqVerificationExclusions != null)
                         {
-                            UseTotalProgressMapping();
-
                             L.Separator();
 
                             try
                             {
                                 UpdatePlayButtonText("Opening MPQs...");
 
-                                var hierarchy = await MpqHierarchy.CreateAsync(Env.GetBaseGameDirPath(), _currentCts.Token);
+                                UseFileCountProgressMapping();
+
+                                var hierarchy = await MpqHierarchy.CreateAsync(
+                                    Env.GetBaseGameDirPath(),
+                                    new ProgressWithCookie<ProgressValues.IData>(_progressCookie, UpdateProgressValues),
+                                    _currentCts.Token);
+
+                                _progressCookie.Advance();
 
                                 UpdatePlayButtonText("Verifying MPQs...");
+
+                                UseTotalProgressMapping();
 
                                 List<VerificationFailure> failures = await Mpq.VerifyMpqsAsync(
                                     hierarchy,
