@@ -1,5 +1,4 @@
 ﻿using System.Windows.Controls;
-using PD2Launcherv2.ViewModels;
 using PD2Shared.Utils;
 
 namespace PD2Launcherv2.Views
@@ -12,7 +11,6 @@ namespace PD2Launcherv2.Views
         public OptionsView()
         {
             InitializeComponent();
-            DataContext = App.Resolve<OptionsViewModel>();
 
             // It's much easier to have this set up here than via the model
             if (Wine.IsRunningUnderWine)
