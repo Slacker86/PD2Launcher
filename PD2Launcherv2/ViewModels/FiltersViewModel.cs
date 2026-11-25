@@ -133,6 +133,8 @@ namespace PD2Launcherv2.ViewModels
             CloseFilterPreviewCommand = new RelayCommand(CloseFilterPreview);
             CopyToLocalCommand = new RelayCommand(CopyFilterToLocalExecute);
             IsWebViewVisible = false;
+
+            ResumeEvents();
         }
 
         public async Task InitializeAsync()
