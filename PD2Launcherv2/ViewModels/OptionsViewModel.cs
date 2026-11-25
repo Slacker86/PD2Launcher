@@ -610,6 +610,32 @@ namespace PD2Launcherv2.ViewModels
                         Messenger.Default.Send(new LauncherOptionsChangeMessage
                         {
                             ForceSoftwareRenderer = value,
+                            ClearTextRendering = ClearTextRendering,
+                            UseHttp2 = UseHttp2,
+                            DisableAutoUpdate = AutoUpdate
+                        });
+                    }
+                }
+            }
+        }
+
+        private bool _clearTextRendering;
+        public bool ClearTextRendering
+        {
+            get => _clearTextRendering;
+            set
+            {
+                if (_clearTextRendering != value)
+                {
+                    _clearTextRendering = value;
+                    OnPropertyChanged();
+
+                    if (!EventsSuppressed)
+                    {
+                        Messenger.Default.Send(new LauncherOptionsChangeMessage
+                        {
+                            ForceSoftwareRenderer = ForceSoftwareRenderer,
+                            ClearTextRendering = value,
                             UseHttp2 = UseHttp2,
                             DisableAutoUpdate = AutoUpdate
                         });
@@ -634,6 +660,7 @@ namespace PD2Launcherv2.ViewModels
                         Messenger.Default.Send(new LauncherOptionsChangeMessage
                         {
                             ForceSoftwareRenderer = ForceSoftwareRenderer,
+                            ClearTextRendering = ClearTextRendering,
                             UseHttp2 = value,
                             DisableAutoUpdate = AutoUpdate
                         });
@@ -659,6 +686,7 @@ namespace PD2Launcherv2.ViewModels
                         Messenger.Default.Send(new LauncherOptionsChangeMessage
                         {
                             ForceSoftwareRenderer = ForceSoftwareRenderer,
+                            ClearTextRendering = ClearTextRendering,
                             UseHttp2 = UseHttp2,
                             DisableAutoUpdate = value
                         });
@@ -758,6 +786,7 @@ namespace PD2Launcherv2.ViewModels
             if (launcherOptions != null)
             {
                 ForceSoftwareRenderer = launcherOptions.ForceSoftwareRenderer;
+                ClearTextRendering = launcherOptions.ClearTextRendering;
                 UseHttp2 = launcherOptions.UseHttp2;
                 AutoUpdate = launcherOptions.DisableAutoUpdate;
             }
@@ -784,6 +813,7 @@ namespace PD2Launcherv2.ViewModels
             var launcherOptions = new LauncherOptions
             {
                 ForceSoftwareRenderer = ForceSoftwareRenderer,
+                ClearTextRendering = ClearTextRendering,
                 UseHttp2 = UseHttp2,
                 DisableAutoUpdate = AutoUpdate
             };

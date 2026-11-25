@@ -5,6 +5,7 @@ using PD2Launcherv2.Helpers;
 using PD2Shared.Helpers;
 using PD2Shared.Interfaces;
 using PD2Launcherv2.Messages;
+using PD2Launcherv2.Resources.Styles;
 using PD2Shared.Models;
 using PD2Launcherv2.Views;
 using System.ComponentModel;
@@ -183,6 +184,28 @@ namespace PD2Launcherv2
                     _forceSoftwareRenderer = value;
                     System.Windows.Media.RenderOptions.ProcessRenderMode = _forceSoftwareRenderer ? System.Windows.Interop.RenderMode.SoftwareOnly : System.Windows.Interop.RenderMode.Default;
                     OnPropertyChanged(nameof(ForceSoftwareRenderer));
+                }
+            }
+        }
+
+        private bool _clearTextRendering;
+        public bool ClearTextRendering
+        {
+            get => _clearTextRendering;
+            set
+            {
+                if (_clearTextRendering != value)
+                {
+                    _clearTextRendering = value;
+
+                    var resources = Application.Current.Resources;
+
+                    var style = (Style)resources[_clearTextRendering ? ResourceKeys.PixelPerfectFrameworkElementWithClearText : ResourceKeys.PixelPerfectFrameworkElementBase];
+                    resources[ResourceKeys.PixelPerfectFrameworkElement] = style;
+
+                    this.Style = style;
+
+                    OnPropertyChanged(nameof(ClearTextRendering));
                 }
             }
         }
@@ -1256,6 +1279,7 @@ namespace PD2Launcherv2
             LauncherOptions launcherOptions = _localStorage.LoadSection<LauncherOptions>(StorageKey.LauncherOptions);
 
             ForceSoftwareRenderer = launcherOptions.ForceSoftwareRenderer;
+            ClearTextRendering = launcherOptions.ClearTextRendering;
             UseHttp2 = launcherOptions.UseHttp2;
             IsDisableUpdates = launcherOptions.DisableAutoUpdate;
             AutoCloseAfterLaunch = launcherOptions.AutoCloseAfterLaunch;
@@ -1273,6 +1297,8 @@ namespace PD2Launcherv2
         {
             ForceSoftwareRenderer = message.ForceSoftwareRenderer;
             OnPropertyChanged(nameof(ForceSoftwareRenderer));
+            ClearTextRendering = message.ClearTextRendering;
+            OnPropertyChanged(nameof(ClearTextRendering));
             UseHttp2 = message.UseHttp2;
             OnPropertyChanged(nameof(UseHttp2));
             IsDisableUpdates = message.DisableAutoUpdate;
@@ -1421,6 +1447,7 @@ namespace PD2Launcherv2
             _localStorage.Update(StorageKey.LauncherOptions, new LauncherOptions
             {
                 ForceSoftwareRenderer = this.ForceSoftwareRenderer,
+                ClearTextRendering = this.ClearTextRendering,
                 UseHttp2 = this.UseHttp2,
                 DisableAutoUpdate = this.IsDisableUpdates,
                 AutoCloseAfterLaunch = this.AutoCloseAfterLaunch
