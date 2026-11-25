@@ -52,6 +52,8 @@ namespace PD2Launcherv2.ViewModels
             RestoreDefaultsCommand = new RelayCommand(ResetDdrawOptionsToDefaults);
             SetWindowsPermissionsCommand = new RelayCommand(SetWindowsPermissions);
             RemoveWindowsPermissionsCommand = new RelayCommand(RemoveWindowsPermissions);
+
+            ResumeEvents();
         }
 
         public Visibility NonFullScreenVisibility
@@ -106,12 +108,15 @@ namespace PD2Launcherv2.ViewModels
                     OnPropertyChanged(nameof(IsDdrawSelected));
                     OnPropertyChanged(nameof(DDrawControlsVisible));
 
-                    Messenger.Default.Send(new RendererChangeMessage
+                    if (!EventsSuppressed)
                     {
-                        UseD2GL = !_isDdrawSelected,
-                        // <!> This is quite horrible and should be made into an enum
-                        CncDDrawUsesGL = _selectedRenderer == "opengl"
-                    });
+                        Messenger.Default.Send(new RendererChangeMessage
+                        {
+                            UseD2GL = !_isDdrawSelected,
+                            // <!> This is quite horrible and should be made into an enum
+                            CncDDrawUsesGL = _selectedRenderer == "opengl"
+                        });
+                    }
                 }
             }
         }
@@ -352,12 +357,15 @@ namespace PD2Launcherv2.ViewModels
                     _selectedRenderer = value;
                     OnPropertyChanged(nameof(SelectedRenderer));
 
-                    Messenger.Default.Send(new RendererChangeMessage
+                    if (!EventsSuppressed)
                     {
-                        UseD2GL = !_isDdrawSelected,
-                        // <!> This is quite horrible and should be made into an enum
-                        CncDDrawUsesGL = _selectedRenderer == "opengl"
-                    });
+                        Messenger.Default.Send(new RendererChangeMessage
+                        {
+                            UseD2GL = !_isDdrawSelected,
+                            // <!> This is quite horrible and should be made into an enum
+                            CncDDrawUsesGL = _selectedRenderer == "opengl"
+                        });
+                    }
                 }
             }
         }
@@ -596,12 +604,16 @@ namespace PD2Launcherv2.ViewModels
                 {
                     _forceSoftwareRederer = value;
                     OnPropertyChanged();
-                    Messenger.Default.Send(new LauncherOptionsChangeMessage
+
+                    if (!EventsSuppressed)
                     {
-                        ForceSoftwareRenderer = value,
-                        UseHttp2 = UseHttp2,
-                        DisableAutoUpdate = AutoUpdate
-                    });
+                        Messenger.Default.Send(new LauncherOptionsChangeMessage
+                        {
+                            ForceSoftwareRenderer = value,
+                            UseHttp2 = UseHttp2,
+                            DisableAutoUpdate = AutoUpdate
+                        });
+                    }
                 }
             }
         }
@@ -616,12 +628,16 @@ namespace PD2Launcherv2.ViewModels
                 {
                     _useHttp2 = value;
                     OnPropertyChanged();
-                    Messenger.Default.Send(new LauncherOptionsChangeMessage
+
+                    if (!EventsSuppressed)
                     {
-                        ForceSoftwareRenderer = ForceSoftwareRenderer,
-                        UseHttp2 = value,
-                        DisableAutoUpdate = AutoUpdate
-                    });
+                        Messenger.Default.Send(new LauncherOptionsChangeMessage
+                        {
+                            ForceSoftwareRenderer = ForceSoftwareRenderer,
+                            UseHttp2 = value,
+                            DisableAutoUpdate = AutoUpdate
+                        });
+                    }
                 }
             }
         }
@@ -637,12 +653,16 @@ namespace PD2Launcherv2.ViewModels
                     Debug.WriteLine($"Set _autoUpdate {value}");
                     _autoUpdate = value;
                     OnPropertyChanged();
-                    Messenger.Default.Send(new LauncherOptionsChangeMessage
+
+                    if (!EventsSuppressed)
                     {
-                        ForceSoftwareRenderer = ForceSoftwareRenderer,
-                        UseHttp2 = UseHttp2,
-                        DisableAutoUpdate = value
-                    });
+                        Messenger.Default.Send(new LauncherOptionsChangeMessage
+                        {
+                            ForceSoftwareRenderer = ForceSoftwareRenderer,
+                            UseHttp2 = UseHttp2,
+                            DisableAutoUpdate = value
+                        });
+                    }
                 }
             }
         }

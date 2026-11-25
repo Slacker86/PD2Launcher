@@ -57,6 +57,8 @@ namespace PD2Launcherv2.ViewModels
             CustomBucket = new RelayCommand(CustomBucketAssign);
 
             CloseCommand = new RelayCommand(CloseView);
+
+            ResumeEvents();
         }
 
         //private void ToggleCustomEnv()

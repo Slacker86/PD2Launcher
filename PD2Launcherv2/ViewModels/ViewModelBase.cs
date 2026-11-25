@@ -8,8 +8,19 @@ namespace PD2Launcherv2.ViewModels
     {
         public event PropertyChangedEventHandler PropertyChanged;
 
+        protected bool EventsSuppressed { get; private set; } = true;
+        protected void ResumeEvents()
+        {
+            EventsSuppressed = false;
+        }
+
         protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
         {
+            if (EventsSuppressed)
+            {
+                return;
+            }
+
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
 
