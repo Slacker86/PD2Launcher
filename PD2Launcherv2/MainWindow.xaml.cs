@@ -186,7 +186,9 @@ namespace PD2Launcherv2
                 if (_forceSoftwareRenderer != value)
                 {
                     _forceSoftwareRenderer = value;
-                    System.Windows.Media.RenderOptions.ProcessRenderMode = _forceSoftwareRenderer ? System.Windows.Interop.RenderMode.SoftwareOnly : System.Windows.Interop.RenderMode.Default;
+
+                    RenderOptions.ProcessRenderMode = _forceSoftwareRenderer ? RenderMode.SoftwareOnly : RenderMode.Default;
+
                     OnPropertyChanged(nameof(ForceSoftwareRenderer));
                 }
             }
@@ -1646,8 +1648,7 @@ namespace PD2Launcherv2
                         localStorage.Update<LauncherOptions>(StorageKey.LauncherOptions, new LauncherOptions()
                         {
                             ForceSoftwareRenderer = true,
-                            // HTTP/2 performance in Wine is currently subpar
-                            UseHttp2 = false
+                            ClearTextRendering = true
                         });
 
                         localStorageUpdated = true;
