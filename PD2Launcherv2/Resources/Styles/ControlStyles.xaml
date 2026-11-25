@@ -1,6 +1,7 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:local="clr-namespace:PD2Launcherv2.CustomControl"
+                    xmlns:styles="clr-namespace:PD2Launcherv2.Resources.Styles"
                     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
                     xmlns:comment="https://whatever/comment"
                     mc:Ignorable="comment">
@@ -64,11 +65,20 @@
     </Style>
 
     <!-- Attempt near pixel-perfect rendering of images, text blocks and everything in-between -->
-    <Style TargetType="FrameworkElement" x:Key="PixelPerfectFrameworkElement">
+    <Style TargetType="FrameworkElement" x:Key="{x:Static styles:ResourceKeys.PixelPerfectFrameworkElementBase}">
         <!-- This seems to work when set on the Window level (https://learn.microsoft.com/en-us/dotnet/api/system.windows.uielement.snapstodevicepixels#remarks) -->
         <Setter Property="SnapsToDevicePixels" Value="True"/>
         <!-- ...and this too (https://learn.microsoft.com/en-us/dotnet/api/system.windows.frameworkelement.uselayoutrounding#remarks) -->
         <Setter Property="UseLayoutRounding" Value="True"/>
+    </Style>
+
+    <Style TargetType="FrameworkElement" x:Key="{x:Static styles:ResourceKeys.PixelPerfectFrameworkElementWithClearText}" BasedOn="{StaticResource {x:Static styles:ResourceKeys.PixelPerfectFrameworkElementBase}}">
+        <Setter Property="TextOptions.TextFormattingMode" Value="Display"/>
+        <Setter Property="TextOptions.TextRenderingMode" Value="Grayscale"/>
+        <Setter Property="TextOptions.TextHintingMode" Value="Fixed"/>
+    </Style>
+
+    <Style TargetType="FrameworkElement" x:Key="{x:Static styles:ResourceKeys.PixelPerfectFrameworkElement}" BasedOn="{StaticResource {x:Static styles:ResourceKeys.PixelPerfectFrameworkElementBase}}">
     </Style>
 
     <!-- Force images to retain their original size -->

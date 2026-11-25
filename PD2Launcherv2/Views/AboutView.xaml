@@ -4,8 +4,9 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:local="clr-namespace:PD2Launcherv2.ViewModels"
+      xmlns:styles="clr-namespace:PD2Launcherv2.Resources.Styles"
       Width="750" Height="550"
-      Style="{StaticResource PixelPerfectFrameworkElement}"
+      Style="{StaticResource {x:Static styles:ResourceKeys.PixelPerfectFrameworkElement}}"
       mc:Ignorable="d" 
       Title="AboutView"
       DataContext="{Binding AboutViewModel, Source={StaticResource ViewModelLocator}}">
