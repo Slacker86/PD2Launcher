@@ -90,8 +90,6 @@ namespace PD2Launcherv2
         private readonly Brush NormalTextBrush;
         private readonly Brush ErrorTextBrush;
 
-        private bool _suppressRendererChangedMessages = false;
-
         // EndPoint stats
         readonly Stopwatch _endPointStatsStopwatch = new();
         readonly Dictionary<IPAddress, IPAddressStats> _endPointIPAddressToStats = new();
@@ -1187,19 +1185,8 @@ namespace PD2Launcherv2
             ClearNavigationStack();
             Overlay.Visibility = Visibility.Visible;
 
-            try
-            {
-                // <!> This is a nasty workaround for OptionsViewModel's excessive and reentrant event firing during initialization
-                //     caused by not differentiating between properties being set programmatically and interactively.
-                _suppressRendererChangedMessages = true;
-
-                MainFrame.Navigate(new OptionsView());
-                MainFrame.Focus();
-            }
-            finally
-            {
-                _suppressRendererChangedMessages = false;
-            }
+            MainFrame.Navigate(new OptionsView());
+            MainFrame.Focus();
         }
 
         private void ShowLootView()
@@ -1294,11 +1281,6 @@ namespace PD2Launcherv2
 
         private void OnRendererChanged(RendererChangeMessage message)
         {
-            if (_suppressRendererChangedMessages)
-            {
-                return;
-            }
-
             CheckGlCtxAndPrompt(message.UseD2GL, message.CncDDrawUsesGL);
         }
 
