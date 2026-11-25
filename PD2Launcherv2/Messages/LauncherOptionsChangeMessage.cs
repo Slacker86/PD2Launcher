@@ -3,6 +3,7 @@
     public class LauncherOptionsChangeMessage
     {
         public bool ForceSoftwareRenderer { get; init; }
+        public bool ClearTextRendering { get; init; }
         public bool UseHttp2 { get; init; }
         public bool DisableAutoUpdate { get; init; }
     }

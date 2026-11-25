@@ -88,6 +88,9 @@
                         <CheckBox x:Name="ForceSoftwareRenderer" Content="Force Software Renderer" Style="{StaticResource CustomCheckBoxStyle}"
                             FontFamily="{StaticResource BlizzMedium}" Foreground="{StaticResource GoldBrush}" IsChecked="{Binding ForceSoftwareRenderer, Mode=TwoWay}"
                             FontSize="12" Margin="10,10,10,0"/>
+                        <CheckBox x:Name="ClearTextRendering" Content="Clear Text Rendering" Style="{StaticResource CustomCheckBoxStyle}"
+                            FontFamily="{StaticResource BlizzMedium}" Foreground="{StaticResource GoldBrush}" IsChecked="{Binding ClearTextRendering, Mode=TwoWay}"
+                            FontSize="12" Margin="10,10,10,0"/>
                         <CheckBox x:Name="UseHttp2" Content="Use HTTP/2" Style="{StaticResource CustomCheckBoxStyle}"
                             FontFamily="{StaticResource BlizzMedium}" Foreground="{StaticResource GoldBrush}" IsChecked="{Binding UseHttp2, Mode=TwoWay}"
                             FontSize="12" Margin="10,10,10,0"/>
